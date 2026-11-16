@@ -826,7 +826,7 @@ const SCREW={long50:{n:'สกรูยาว 48/50 มม.',p:2.5,pc:3},long75:
 const ROD_PRICE=160;                                    // ลวดเชื่อม 2.6 บาท/กล่อง (2 กก.)
 const DISC_PRICE=100;                                   // ใบตัด 14 นิ้ว บาท/ใบ
 const INSTALL={std:60, premium:70, snap:50, snapPU:60}; // บาท/ม. ความยาวแผ่น (รวมอุปกรณ์)
-const DEF_WIDTH={std:0.76, spanish:0.74, snap:null};
+const DEF_WIDTH={std:0.76, spanish:0.74, snap:0.30};
 const finishOf=()=>state.sheet.color==='zinc'?'zinc':'color';
 const INS_LABEL=()=>{ const st=state.sheet; return st.ins==='pe'?'PE 5 มม.':st.ins==='pu'?`PU ${st.puT===1?'25':'50'} มม. ${PU_PATS.find(x=>x[0]===st.puPat)[1]}`:st.ins==='sand'?`หลังคาแซนด์วิช PU ${st.puT===1?'25':'50'} มม. ท้องเหล็ก`:''; };
 function thkList(){ const g=SHEET_PRICE[state.sheet.grade], fin=g[finishOf()];
