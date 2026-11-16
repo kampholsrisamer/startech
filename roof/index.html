@@ -828,7 +828,7 @@ const PU_PATS=[['orange','ฟอยล์เปลือกส้ม'],['white',
 const SCREW={long50:{n:'สกรูยาว 48/50 มม.',p:2.5,pc:3},long75:{n:'สกรูยาว 60–75 มม. (ยึด PU 1 นิ้ว)',p:5,pc:7},long100:{n:'สกรูยาว 100 มม. (ยึด PU 2 นิ้ว)',p:8.5,pc:9},short:{n:'สกรูสั้น 16/20 มม.',p:1.5,pc:2}};
 const ROD_PRICE=160;                                    // ลวดเชื่อม 2.6 บาท/กล่อง (2 กก.)
 const DISC_PRICE=100;                                   // ใบตัด 14 นิ้ว บาท/ใบ
-const FRAME_LABOR={hip:400, other:250}; // บาท/ตร.ม. พื้นที่หลังคา ค่าแรงทำโครง: ปั้นหยา 400 · ทรงอื่น 250
+const FRAME_LABOR={hip:400, dutch:400, mansard:400, other:250}; // บาท/ตร.ม. พื้นที่หลังคา ค่าแรงทำโครง: ปั้นหยา มนิลา สองชั้น 400 · ทรงอื่น 250
 const frameRate=()=>FRAME_LABOR[state.cat]||FRAME_LABOR.other;
 const INSTALL={std:60, premium:70, snap:50, snapPU:60}; // บาท/ม. ความยาวแผ่น (รวมอุปกรณ์)
 const DEF_WIDTH={std:0.76, spanish:0.74, snap:0.30};
