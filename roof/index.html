@@ -747,7 +747,7 @@ function renderPickers(){
   $('puOpts').style.display=state.sheet.pu?'':'none'; $('puPatBox').style.display=state.sheet.ins==='pu'?'':'none';
   $('puPat').innerHTML=PU_PATS.map(([k,n])=>`<option value="${k}" ${k===state.sheet.puPat?'selected':''}>${n}</option>`).join(''); $('puPat').onchange=()=>{ state.sheet.puPat=$('puPat').value; calc(); };
   const tl=thkList(); if(!tl.find(x=>x[0]===state.sheet.t)) state.sheet.t=(tl.find(x=>x[0]==='0.35')||tl[0])[0];
-  $('shT').innerHTML=tl.map(([k,pr,lab])=>`<option value="${k}" ${k===state.sheet.t?'selected':''}>${lab||k+' มม.'}${BRANCH?(pr==null?' · รอราคา':` · ${money(pr+(PROFILE_ADD[state.sheet.type]||PROFILE_ADD[state.sub]||0))} บ./ม.`):''}</option>`).join('');
+  $('shT').innerHTML=tl.map(([k,pr,lab,est])=>`<option value="${k}" ${k===state.sheet.t?'selected':''}>${lab||k+' มม.'}${BRANCH?(pr==null?' · รอราคา':` · ${money(pr+(PROFILE_ADD[state.sheet.type]||PROFILE_ADD[state.sub]||0))} บ./ม.${est?' (เทียบลอนมาตรฐาน)':''}`):''}</option>`).join('');
   $('shT').onchange=()=>{ state.sheet.t=$('shT').value; calc(); };
   if(state.sheet.w==null && DEF_WIDTH[state.sheet.type]) state.sheet.w=DEF_WIDTH[state.sheet.type];
   $('colorPick').innerHTML=ROOFCOLORS.map(([id,n,h])=>`<button class="${id===state.sheet.color?'on':''}" data-rc="${id}" title="${n}" style="background:${h}"></button>`).join('');
@@ -833,8 +833,12 @@ function thkList(){ const g=SHEET_PRICE[state.sheet.grade], fin=g[finishOf()];
   const keys=[]; [...g.zinc,...g.color].forEach(([k,,lab])=>{ if(!keys.find(x=>x[0]===k)) keys.push([k,lab]); });
   keys.sort((x,y)=>parseFloat(x[0])-parseFloat(y[0])||x[0].localeCompare(y[0]));
   if(finishOf()==='color') for(let i=keys.length-1;i>=0;i--) if(keys[i][0].endsWith('Z')) keys.splice(i,1);   // Zincalume AZ-150 มีเฉพาะอลูซิงค์
-  return keys.map(([k,lab])=>{ const f=fin.find(x=>x[0]===k), sp=state.sheet.type==='snap'?(finishOf()==='color'?g.snap.find(x=>x[0]===k):null):f;
-    return [k, sp?sp[1]:null, (f&&f[2])||lab]; }); }
+  // Snap Lock ความหนาที่ไม่มีราคา: เทียบจากลอนมาตรฐานด้วยสัดส่วนราคา Snap/มาตรฐานของเกรดนั้น (ปัดเป็นทวีคูณ 5)
+  const ratios=g.snap.map(([k,pr])=>{ const c=g.color.find(x=>x[0]===k); return c&&c[1]?pr/c[1]:null; }).filter(Boolean), ratio=ratios.reduce((a,b)=>a+b,0)/ratios.length;
+  return keys.map(([k,lab])=>{ const f=fin.find(x=>x[0]===k); let pr=f?f[1]:null, est=false;
+    if(state.sheet.type==='snap'){ const sp=finishOf()==='color'?g.snap.find(x=>x[0]===k):null;
+      if(sp) pr=sp[1]; else if(pr!=null){ pr=Math.round(pr*ratio/5)*5; est=true; } }
+    return [k, pr, (f&&f[2])||lab, est]; }); }
 const SPK=['colSp','rafSp','pSp']; const MINCOL=3.0;
 function visFace(R){ if(!R.faces.length) return null; const fc=f=>{const q=facePts(f); return q.reduce((a,b)=>a.add(b),V(0,0,0)).multiplyScalar(1/q.length);};
   return R.faces.reduce((a,b)=>{const ma=fc(a),mb=fc(b); return (mb.z-mb.x*0.5)>(ma.z-ma.x*0.5)?b:a;}); }
@@ -886,7 +890,7 @@ function sheetCalc(R,parts){
   const lines=[];
   const L=(name,detail,qty,unit,up,amt)=>lines.push({name,detail,qty,unit,up,amt});
   const thkLab=row[2]||row[0]+' มม.';
-  L(`${T.n} ${thkLab}`, `${GRADES[st.grade]} · สี${RC(st.color)[1]}${add&&BRANCH?` · รวมบวกเพิ่มลอน +${add} บ./ม.`:''}<br>${faces.map(f=>(f.n?`${f.n} แผ่น×`:'')+(f.var?`ยาวสุด ${fmt(f.len)} ม. (ตัดเฉียงตามตะเฆ่)`:`ยาว ${fmt(f.len)} ม.`)).join(' · ')} · ${fmt(area,1)} ตร.ม.`,
+  L(`${T.n} ${thkLab}`, `${GRADES[st.grade]} · สี${RC(st.color)[1]}${add&&BRANCH?` · รวมบวกเพิ่มลอน +${add} บ./ม.`:''}${row[3]&&BRANCH?' · ราคาเทียบจากลอนมาตรฐาน':''}<br>${faces.map(f=>(f.n?`${f.n} แผ่น×`:'')+(f.var?`ยาวสุด ${fmt(f.len)} ม. (ตัดเฉียงตามตะเฆ่)`:`ยาว ${fmt(f.len)} ม.`)).join(' · ')} · ${fmt(area,1)} ตร.ม.`,
     w?meters:null,'ม.',pm, w&&pm!=null?meters*pm:null);
   if(st.ins==='pe') L('ฉนวน PE 5 มม. กาวสำเร็จ','ติดใต้แผ่นตามความยาวแผ่น', w?meters:null,'ม.',PE_PRICE, w?meters*PE_PRICE:null);
   if(st.ins==='pu'||st.ins==='sand'){ const wood=st.puPat.startsWith('wood'), up=st.ins==='pu'?PU_PRICE[st.puT][wood?'wood':'foil'] : (row[1]==null?null:PU_PRICE[st.puT].foil+row[1]);
