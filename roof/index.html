@@ -266,7 +266,7 @@ details summary{cursor:pointer;color:var(--navy);font-weight:600;font-size:14px}
       <div><label>คานหัวเสา / เหล็กยึดผนัง</label><select id="bSize"></select></div>
       
     </div>
-    <details style="margin-top:14px">
+    <details style="margin-top:14px" id="steelTblBox">
       <summary>ตารางราคาเหล็ก (ต่อเส้น 6 ม.)</summary>
       <div id="steelTable"></div>
     </details>
@@ -748,7 +748,7 @@ function renderPickers(){
   $('puOpts').style.display=state.sheet.pu?'':'none'; $('puPatBox').style.display=state.sheet.ins==='pu'?'':'none';
   $('puPat').innerHTML=PU_PATS.map(([k,n])=>`<option value="${k}" ${k===state.sheet.puPat?'selected':''}>${n}</option>`).join(''); $('puPat').onchange=()=>{ state.sheet.puPat=$('puPat').value; calc(); };
   const tl=thkList(); if(!tl.find(x=>x[0]===state.sheet.t)) state.sheet.t=(tl.find(x=>x[0]==='0.35')||tl[0])[0];
-  $('shT').innerHTML=tl.map(([k,pr,lab])=>`<option value="${k}" ${k===state.sheet.t?'selected':''}>${lab||k+' มม.'} · ${money(pr+(PROFILE_ADD[state.sheet.type]||PROFILE_ADD[state.sub]||0))} บ./ม.</option>`).join('');
+  $('shT').innerHTML=tl.map(([k,pr,lab])=>`<option value="${k}" ${k===state.sheet.t?'selected':''}>${lab||k+' มม.'}${BRANCH?` · ${money(pr+(PROFILE_ADD[state.sheet.type]||PROFILE_ADD[state.sub]||0))} บ./ม.`:''}</option>`).join('');
   $('shT').onchange=()=>{ state.sheet.t=$('shT').value; calc(); };
   if(state.sheet.w==null && DEF_WIDTH[state.sheet.type]) state.sheet.w=DEF_WIDTH[state.sheet.type];
   $('colorPick').innerHTML=ROOFCOLORS.filter(c=>!(state.sheet.type==='snap'&&c[0]==='zinc')).map(([id,n,h])=>`<button class="${id===state.sheet.color?'on':''}" data-rc="${id}" title="${n}" style="background:${h}"></button>`).join('');
@@ -766,7 +766,7 @@ function renderPickers(){
   $('colPick').querySelectorAll('[data-col]').forEach(b=>b.onclick=()=>{state.col=b.dataset.col; refresh();});
   $('steelSizeBox').style.display = state.col==='steel'?'':'none';
   $('concBox').style.display = state.col==='concrete'?'':'none';
-  $('colSizePick').innerHTML = STEEL.filter(s=>!['1x1_12','15x15_12','mon_07'].includes(s.id)).map(s=>`<button class="chip ${s.id===state.colSize?'on':''}" data-cs="${s.id}"><b>${s.short}</b>${money(s.sell)} ฿/เส้น · ${fmt(s.kg)} กก.</button>`).join('');
+  $('colSizePick').innerHTML = STEEL.filter(s=>!['1x1_12','15x15_12','mon_07'].includes(s.id)).map(s=>`<button class="chip ${s.id===state.colSize?'on':''}" data-cs="${s.id}"><b>${s.short}</b>${BRANCH?money(s.sell)+' ฿/เส้น · ':''}${fmt(s.kg)} กก./เส้น</button>`).join('');
   $('colSizePick').querySelectorAll('[data-cs]').forEach(b=>b.onclick=()=>{state.colSize=b.dataset.cs; refresh();});
 
   const p=cleanP(), wall=sub.wall, lab = {
@@ -790,7 +790,7 @@ function renderPickers(){
 function fillSelect(el, def){ el.innerHTML = STEEL.map(s=>`<option value="${s.id}">${s.name}</option>`).join(''); el.value = def; }
 fillSelect($('pSize'),'2x1_12'); fillSelect($('rSize'),'4x2_12'); fillSelect($('bSize'),'4x2_12');
 ['pSize','rSize','bSize','concPrice'].forEach(id=>$(id).addEventListener('input',calc));
-function renderSteelTable(){ $('steelTable').innerHTML = `<div class="tw"><table><thead><tr><th>รายการ</th><th>กก./เส้น</th><th>ราคาขาย/เส้น</th>${COST?'<th>ทุน/เส้น (รวม VAT)</th><th>กำไร/เส้น</th>':''}</tr></thead><tbody>`+
+function renderSteelTable(){ const bx=document.getElementById('steelTblBox'); if(bx) bx.style.display=BRANCH?'':'none'; $('steelTable').innerHTML = `<div class="tw"><table><thead><tr><th>รายการ</th><th>กก./เส้น</th><th>ราคาขาย/เส้น</th>${COST?'<th>ทุน/เส้น (รวม VAT)</th><th>กำไร/เส้น</th>':''}</tr></thead><tbody>`+
   STEEL.map(s=>`<tr><td>${s.name}</td><td>${fmt(s.kg)}</td><td>${money(s.sell)}</td>${COST?`<td>${fmt(COST[s.id])}</td><td>${fmt(s.sell-COST[s.id])}</td>`:''}</tr>`).join('')+'</tbody></table></div>'; }
 renderSteelTable();
 const CONSF=[['weldPerRod','ลวด 1 เส้น เชื่อมได้ยาว (ซม.)',1],['rodsPerPack','ลวด 1 กล่อง มีกี่เส้น',10],['packKg','น้ำหนักต่อกล่อง (กก.)',0.5],['cutsPerDisc','ใบตัด 1 ใบ ตัดเหล็ก 2×1 ได้ (รอย)',1],['waste','เผื่อเสีย (%)',1]];
@@ -881,14 +881,14 @@ function sheetCalc(R,parts){
   const lines=[];
   const L=(name,detail,qty,unit,up,amt)=>lines.push({name,detail,qty,unit,up,amt});
   const thkLab=row[2]||row[0]+' มม.';
-  L(`${T.n} ${thkLab}`, `${GRADES[st.grade]} · สี${RC(st.color)[1]}${add?` · รวมบวกเพิ่มลอน +${add} บ./ม.`:''}<br>${faces.map(f=>(f.n?`${f.n} แผ่น×`:'')+(f.var?`ยาวสุด ${fmt(f.len)} ม. (ตัดเฉียงตามตะเฆ่)`:`ยาว ${fmt(f.len)} ม.`)).join(' · ')} · ${fmt(area,1)} ตร.ม.`,
+  L(`${T.n} ${thkLab}`, `${GRADES[st.grade]} · สี${RC(st.color)[1]}${add&&BRANCH?` · รวมบวกเพิ่มลอน +${add} บ./ม.`:''}<br>${faces.map(f=>(f.n?`${f.n} แผ่น×`:'')+(f.var?`ยาวสุด ${fmt(f.len)} ม. (ตัดเฉียงตามตะเฆ่)`:`ยาว ${fmt(f.len)} ม.`)).join(' · ')} · ${fmt(area,1)} ตร.ม.`,
     w?meters:null,'ม.',pm, w?meters*pm:null);
   if(st.ins==='pe') L('ฉนวน PE 5 มม. กาวสำเร็จ','ติดใต้แผ่นตามความยาวแผ่น', w?meters:null,'ม.',PE_PRICE, w?meters*PE_PRICE:null);
   if(st.ins==='pu'||st.ins==='sand'){ const wood=st.puPat.startsWith('wood'), up=st.ins==='pu'?PU_PRICE[st.puT][wood?'wood':'foil'] : PU_PRICE[st.puT].foil+row[1];
     L(st.ins==='pu'?`ฉนวน ${INS_LABEL()}`:`หลังคาแซนด์วิช: PU ${st.puT===1?'25':'50'} มม. + เหล็กปิดท้อง ${thkLab}`,
-      st.ins==='pu'?'ติดใต้แผ่นตามความยาวแผ่น':`PU ${money(PU_PRICE[st.puT].foil)} + เหล็กปิดท้อง ${thkLab} ${money(row[1])} = ${money(up)} บ./ม. (แผ่นหลังคาด้านบนคิดในบรรทัดแรก)`,
+      st.ins==='pu'?'ติดใต้แผ่นตามความยาวแผ่น':(BRANCH?`PU ${money(PU_PRICE[st.puT].foil)} + เหล็กปิดท้อง ${thkLab} ${money(row[1])} = ${money(up)} บ./ม. (แผ่นหลังคาด้านบนคิดในบรรทัดแรก)`:`PU ${st.puT===1?'25':'50'} มม. + เหล็กปิดท้อง ${thkLab} (แผ่นหลังคาด้านบนอยู่ในบรรทัดแรก)`),
       w?meters:null,'ม.',up, w?meters*up:null); }
-  if(ridge>0) L('ครอบสัน / ครอบตะเฆ่ (ครอบ 457)', `ราคาแผ่น −${CAP_LESS} บ./ม.`, ridge,'ม.',pm-CAP_LESS, ridge*(pm-CAP_LESS));
+  if(ridge>0) L('ครอบสัน / ครอบตะเฆ่ (ครอบ 457)', BRANCH?`ราคาแผ่น −${CAP_LESS} บ./ม.`:'สีและความหนาเดียวกับแผ่นหลังคา', ridge,'ม.',pm-CAP_LESS, ridge*(pm-CAP_LESS));
   L(`${sc.n}${colored?' หัวสี':''}`, `${T.scr} ตัว/ม. × ความยาวแผ่น${scP==null?' · <span style="color:#8a5a00">สกรู 100 มม. ยังไม่มีใน price list</span>':''}`, screws,'ตัว',scP, screws!=null&&scP!=null?screws*scP:null);
   if(ridge>0) L(`สกรูสั้น 16/20 มม.${colored?' หัวสี':''} (แผ่นครอบ)`, `${CAP_SCREW} ตัว/ม. × ครอบ ${fmt(ridge,1)} ม.`, capScrews,'ตัว',shP, capScrews*shP);
   if(sumCat('valley')>0) L('รางน้ำท้องร่อง', 'ราคาตามขนาดราง (สอบถามฝ่ายขาย)', sumCat('valley'),'ม.',null,null);
@@ -926,21 +926,21 @@ function calc(){
     + (COST? kpi(money(steelCost)+' ฿','ต้นทุนเหล็ก (รวม VAT)')+kpi(money(steelSell-steelCost)+' ฿',`กำไรขั้นต้นเหล็ก (${fmt(steelSell?100*(steelSell-steelCost)/steelSell:0,1)}%)`) : '');
 
   const cc=COST?'<th>ทุน (฿)</th><th>กำไร (฿)</th>':'';
-  let h=`<thead><tr><th>รายการ</th><th>ขนาด</th><th>ชิ้นงาน</th><th>ยาวรวม (ม.)</th><th>เส้น</th><th>ราคา/เส้น</th><th>น้ำหนัก (กก.)</th><th>ราคาขาย (฿)</th>${cc}</tr></thead><tbody>`;
-  items.forEach(it=>h+=`<tr><td>${it.name}</td><td>${it.size.short}</td><td>${it.desc}</td><td>${fmt(it.len)}</td><td>${it.bars}</td><td>${money(it.size.sell)}</td><td>${fmt(it.kg,1)}</td><td>${money(it.price)}</td>${COST?`<td>${money(it.cost)}</td><td>${money(it.price-it.cost)}</td>`:''}</tr>`);
-  if(conc) conc.forEach(c=>h+=`<tr><td>เสาคอนกรีต</td><td>สูง ${fmt(c.h)} ม.</td><td>${c.n} ต้น</td><td>${fmt(c.h*c.n)}</td><td>–</td><td>${concPrice?money(concPrice):'–'}</td><td>–</td><td>${concPrice?money(c.n*concPrice):'–'}</td>${COST?'<td>–</td><td>–</td>':''}</tr>`);
-  h+=`</tbody><tfoot><tr><td colspan="4">รวม</td><td>${totBars}</td><td></td><td>${fmt(totKg,1)}</td><td>${money(grand)}</td>${COST?`<td>${money(steelCost)}</td><td>${money(steelSell-steelCost)}</td>`:''}</tr></tfoot>`;
+  let h=`<thead><tr><th>รายการ</th><th>ขนาด</th><th>ชิ้นงาน</th><th>ยาวรวม (ม.)</th><th>เส้น</th>${BRANCH?'<th>ราคา/เส้น</th>':''}<th>น้ำหนัก (กก.)</th><th>ราคาขาย (฿)</th>${cc}</tr></thead><tbody>`;
+  items.forEach(it=>h+=`<tr><td>${it.name}</td><td>${it.size.short}</td><td>${it.desc}</td><td>${fmt(it.len)}</td><td>${it.bars}</td>${BRANCH?`<td>${money(it.size.sell)}</td>`:''}<td>${fmt(it.kg,1)}</td><td>${money(it.price)}</td>${COST?`<td>${money(it.cost)}</td><td>${money(it.price-it.cost)}</td>`:''}</tr>`);
+  if(conc) conc.forEach(c=>h+=`<tr><td>เสาคอนกรีต</td><td>สูง ${fmt(c.h)} ม.</td><td>${c.n} ต้น</td><td>${fmt(c.h*c.n)}</td><td>–</td>${BRANCH?`<td>${concPrice?money(concPrice):'–'}</td>`:''}<td>–</td><td>${concPrice?money(c.n*concPrice):'–'}</td>${COST?'<td>–</td><td>–</td>':''}</tr>`);
+  h+=`</tbody><tfoot><tr><td colspan="4">รวม</td><td>${totBars}</td>${BRANCH?'<td></td>':''}<td>${fmt(totKg,1)}</td><td>${money(grand)}</td>${COST?`<td>${money(steelCost)}</td><td>${money(steelSell-steelCost)}</td>`:''}</tr></tfoot>`;
   $('boq').innerHTML=h;
   const cs=consumables(R,parts,sz); window._cons=cs;
   const SH=sheetCalc(R,parts); window._sheet=SH;
-  $('sheetTbl').innerHTML = !SH ? '' : `<thead><tr><th>แผ่นหลังคา + อุปกรณ์</th><th>จำนวน</th><th>ราคา/หน่วย</th><th>รวม (฿)</th></tr></thead><tbody>
-    ${SH.lines.map(l=>`<tr><td><b>${l.name}</b><br><small style="color:#66718a">${l.detail}</small></td><td>${l.qty!=null?fmt(l.qty,1)+' '+l.unit:'<span style="color:#8a5a00">ใส่ความกว้างแผ่น</span>'}</td><td>${l.up!=null?fmt(l.up)+' ฿':'–'}</td><td>${l.amt!=null?money(l.amt):'–'}</td></tr>`).join('')}
-    ${SH.eave>0?`<tr><td>ชายคา (เชิงชาย/ปิดชาย)<br><small style="color:#66718a">ความยาวขอบล่างหลังคารวม</small></td><td>${fmt(SH.eave,1)} ม.</td><td>–</td><td>–</td></tr>`:''}
-    </tbody><tfoot><tr><td colspan="3">รวมแผ่นหลังคา + อุปกรณ์${SH.missing?' (บางรายการรอราคา)':''}</td><td>${money(SH.total)}</td></tr></tfoot>`;
+  $('sheetTbl').innerHTML = !SH ? '' : `<thead><tr><th>แผ่นหลังคา + อุปกรณ์</th><th>จำนวน</th>${BRANCH?'<th>ราคา/หน่วย</th>':''}<th>รวม (฿)</th></tr></thead><tbody>
+    ${SH.lines.map(l=>`<tr><td><b>${l.name}</b><br><small style="color:#66718a">${l.detail}</small></td><td>${l.qty!=null?fmt(l.qty,1)+' '+l.unit:'<span style="color:#8a5a00">ใส่ความกว้างแผ่น</span>'}</td>${BRANCH?`<td>${l.up!=null?fmt(l.up)+' ฿':'–'}</td>`:''}<td>${l.amt!=null?money(l.amt):(l.qty==null?'–':'รอราคา')}</td></tr>`).join('')}
+    ${SH.eave>0?`<tr><td>ชายคา (เชิงชาย/ปิดชาย)<br><small style="color:#66718a">ความยาวขอบล่างหลังคารวม</small></td><td>${fmt(SH.eave,1)} ม.</td>${BRANCH?'<td>–</td>':''}<td>–</td></tr>`:''}
+    </tbody><tfoot><tr><td colspan="${BRANCH?3:2}">รวมแผ่นหลังคา + อุปกรณ์${SH.missing?' (บางรายการรอราคา)':''}</td><td>${money(SH.total)}</td></tr></tfoot>`;
 
   $('consTbl').innerHTML=`<thead><tr><th>วัสดุสิ้นเปลือง (ประมาณการ)</th><th>จำนวน / ราคา</th><th>คิดจาก</th></tr></thead><tbody>
-    <tr><td>ลวดเชื่อม 2.6 มม. (กล่องละ ${fmt(CONS.packKg)} กก.)</td><td><b>${cs.packs} กล่อง</b> × ${ROD_PRICE} ฿<br>= <b>${money(cs.packs*ROD_PRICE)} ฿</b></td><td>${cs.joints} จุดเชื่อม · แนวเชื่อมรวม ≈ ${fmt(cs.weldM,0)} ม. · ≈ ${cs.rods} เส้น</td></tr>
-    <tr><td>ใบตัดเหล็ก 14 นิ้ว (แท่นตัด)</td><td><b>${cs.discs} ใบ</b> × ${DISC_PRICE} ฿<br>= <b>${money(cs.discs*DISC_PRICE)} ฿</b></td><td>≈ ${cs.cuts} รอยตัด (เหล็กใหญ่คิดสึกมากกว่า)</td></tr></tbody>`;
+    <tr><td>ลวดเชื่อม 2.6 มม. (กล่องละ ${fmt(CONS.packKg)} กก.)</td><td><b>${cs.packs} กล่อง</b>${BRANCH?` × ${ROD_PRICE} ฿`:''}<br>= <b>${money(cs.packs*ROD_PRICE)} ฿</b></td><td>${cs.joints} จุดเชื่อม · แนวเชื่อมรวม ≈ ${fmt(cs.weldM,0)} ม. · ≈ ${cs.rods} เส้น</td></tr>
+    <tr><td>ใบตัดเหล็ก 14 นิ้ว (แท่นตัด)</td><td><b>${cs.discs} ใบ</b>${BRANCH?` × ${DISC_PRICE} ฿`:''}<br>= <b>${money(cs.discs*DISC_PRICE)} ฿</b></td><td>≈ ${cs.cuts} รอยตัด (เหล็กใหญ่คิดสึกมากกว่า)</td></tr></tbody>`;
   const rodsP=cs.packs*ROD_PRICE+cs.discs*DISC_PRICE, roofT=SH?SH.total:0, allT=grand+rodsP+roofT;
   window._totals={rodsP,roofT,allT,missing:!!((SH&&SH.missing)||(conc&&!concPrice))};
   $('kpis').innerHTML += (SH? kpi(money(roofT)+' ฿','แผ่นหลังคา + อุปกรณ์'+(SH.missing?' (บางรายการรอราคา)':'')) : '')
@@ -977,7 +977,7 @@ function refresh(){ renderPickers(); panelSig=''; calc(); }
 $('copyBtn').onclick=async()=>{
   const s=window._sum, p=s.p;
   let txt=`StarTechSteel – สรุปโครงหลังคา\n${s.cat.name}${s.cat.subs.length>1?' › '+s.sub.name:''}\nขนาด ${fmt(p.W)} × ${fmt(p.L)} ม. สูง ${fmt(p.H)} ม. ลาด ${fmt(p.slope,0)}° ชายคา ${fmt(p.ovh)} ม.\nพื้นที่หลังคา ${fmt(s.roofArea,1)} ตร.ม.\n`;
-  s.items.forEach(it=>txt+=`- ${it.name} ${it.size.short}: ${it.bars} เส้น × ${money(it.size.sell)} = ${money(it.price)} ฿${COST?` (ทุน ${money(it.cost)})`:''}\n`);
+  s.items.forEach(it=>txt+=`- ${it.name} ${it.size.short}: ${it.bars} เส้น${BRANCH?` × ${money(it.size.sell)}`:''} = ${money(it.price)} ฿${COST?` (ทุน ${money(it.cost)})`:''}\n`);
   if(s.conc) txt+=`- เสาคอนกรีต: ${s.concCount} ต้น${s.concPrice?' = '+money(s.concCount*s.concPrice)+' ฿':''}\n`;
   txt+=`- ลวดเชื่อม 2.6 มม.: ${window._cons.packs} กล่อง · ใบตัดเหล็ก 14": ${window._cons.discs} ใบ (ประมาณการ)\n`;
   if(window._sheet){ const h=window._sheet; txt+=`- แผ่นหลังคา ${h.name} ${GRADES[state.sheet.grade]} สี${RC(state.sheet.color)[1]}${state.sheet.ins!=='none'?' + '+INS_LABEL():''}${state.sheet.install?' + ติดตั้งพร้อมอุปกรณ์':''}: ${fmt(h.area,1)} ตร.ม.${h.sheets?` (${h.sheets} แผ่น)`:''}${h.ridge>0?` · ครอบ ${fmt(h.ridge,1)} ม.`:''}\n`; if(h.screws!=null) txt+=`- ${h.scrN}: ${money(h.screws)} ตัว${h.capScrews?` · สกรูสั้นแผ่นครอบ: ${money(h.capScrews)} ตัว`:''}\n`; }
@@ -1269,7 +1269,7 @@ async function unlockCost(pw){
 function branchBar(msg){
   const el=$('branchBar');
   if(BRANCH){ el.innerHTML=`<span class="on">🔓 โหมดสาขา · เห็นราคาทุน</span><button id="brOut">ออกจากโหมดสาขา</button>`;
-    $('brOut').onclick=()=>{ COST=null; BRANCH=false; try{localStorage.removeItem('sts_branch')}catch(e){} renderSteelTable(); branchBar(); calc(); }; return; }
+    $('brOut').onclick=()=>{ COST=null; BRANCH=false; try{localStorage.removeItem('sts_branch')}catch(e){} renderSteelTable(); branchBar(); if(state.sub) refresh(); }; return; }
   el.innerHTML=`<button id="brIn">🔒 สำหรับสาขา</button>`;
   $('brIn').onclick=()=>{ el.innerHTML=`<input id="brPw" type="password" placeholder="รหัสสาขา" autocomplete="off"><button id="brGo">ดูราคาทุน</button><button id="brX">ยกเลิก</button>${msg?`<span class="err">${msg}</span>`:''}`;
     $('brPw').focus(); const go=()=>tryUnlock($('brPw').value,true);
@@ -1277,7 +1277,7 @@ function branchBar(msg){
   if(msg) $('brIn').click(); }
 async function tryUnlock(pw,save){
   try{ COST=await unlockCost(pw); BRANCH=true; if(save){ try{localStorage.setItem('sts_branch',pw)}catch(e){} }
-    renderSteelTable(); branchBar(); calc(); }
+    renderSteelTable(); branchBar(); if(state.sub) refresh(); }
   catch(e){ COST=null; BRANCH=false; if(save) branchBar('รหัสไม่ถูกต้อง'); } }
 branchBar();
 try{ const s=localStorage.getItem('sts_branch'); if(s) tryUnlock(s,false); }catch(e){}
