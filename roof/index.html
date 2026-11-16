@@ -884,8 +884,10 @@ function sheetCalc(R,parts){
   L(`${T.n} ${thkLab}`, `${GRADES[st.grade]} · สี${RC(st.color)[1]}${add?` · รวมบวกเพิ่มลอน +${add} บ./ม.`:''}<br>${faces.map(f=>(f.n?`${f.n} แผ่น×`:'')+(f.var?`ยาวสุด ${fmt(f.len)} ม. (ตัดเฉียงตามตะเฆ่)`:`ยาว ${fmt(f.len)} ม.`)).join(' · ')} · ${fmt(area,1)} ตร.ม.`,
     w?meters:null,'ม.',pm, w?meters*pm:null);
   if(st.ins==='pe') L('ฉนวน PE 5 มม. กาวสำเร็จ','ติดใต้แผ่นตามความยาวแผ่น', w?meters:null,'ม.',PE_PRICE, w?meters*PE_PRICE:null);
-  if(st.ins==='pu'||st.ins==='sand'){ const wood=st.puPat.startsWith('wood'), up=st.ins==='pu'?PU_PRICE[st.puT][wood?'wood':'foil']:null;
-    L(st.ins==='pu'?`ฉนวน ${INS_LABEL()}`:INS_LABEL(), up==null?'<span style="color:#8a5a00">หลังคาแซนด์วิช: ราคายังไม่มีใน price list (สอบถามฝ่ายขาย)</span>':'ติดใต้แผ่นตามความยาวแผ่น', w?meters:null,'ม.',up, w&&up!=null?meters*up:null); }
+  if(st.ins==='pu'||st.ins==='sand'){ const wood=st.puPat.startsWith('wood'), up=st.ins==='pu'?PU_PRICE[st.puT][wood?'wood':'foil'] : PU_PRICE[st.puT].foil+row[1];
+    L(st.ins==='pu'?`ฉนวน ${INS_LABEL()}`:`หลังคาแซนด์วิช: PU ${st.puT===1?'25':'50'} มม. + เหล็กปิดท้อง ${thkLab}`,
+      st.ins==='pu'?'ติดใต้แผ่นตามความยาวแผ่น':`PU ${money(PU_PRICE[st.puT].foil)} + เหล็กปิดท้อง ${thkLab} ${money(row[1])} = ${money(up)} บ./ม. (แผ่นหลังคาด้านบนคิดในบรรทัดแรก)`,
+      w?meters:null,'ม.',up, w?meters*up:null); }
   if(ridge>0) L('ครอบสัน / ครอบตะเฆ่ (ครอบ 457)', `ราคาแผ่น −${CAP_LESS} บ./ม.`, ridge,'ม.',pm-CAP_LESS, ridge*(pm-CAP_LESS));
   L(`${sc.n}${colored?' หัวสี':''}`, `${T.scr} ตัว/ม. × ความยาวแผ่น${scP==null?' · <span style="color:#8a5a00">สกรู 100 มม. ยังไม่มีใน price list</span>':''}`, screws,'ตัว',scP, screws!=null&&scP!=null?screws*scP:null);
   if(ridge>0) L(`สกรูสั้น 16/20 มม.${colored?' หัวสี':''} (แผ่นครอบ)`, `${CAP_SCREW} ตัว/ม. × ครอบ ${fmt(ridge,1)} ม.`, capScrews,'ตัว',shP, capScrews*shP);
