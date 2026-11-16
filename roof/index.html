@@ -828,7 +828,8 @@ const PU_PATS=[['orange','ฟอยล์เปลือกส้ม'],['white',
 const SCREW={long50:{n:'สกรูยาว 48/50 มม.',p:2.5,pc:3},long75:{n:'สกรูยาว 60–75 มม. (ยึด PU 1 นิ้ว)',p:5,pc:7},long100:{n:'สกรูยาว 100 มม. (ยึด PU 2 นิ้ว)',p:8.5,pc:9},short:{n:'สกรูสั้น 16/20 มม.',p:1.5,pc:2}};
 const ROD_PRICE=160;                                    // ลวดเชื่อม 2.6 บาท/กล่อง (2 กก.)
 const DISC_PRICE=100;                                   // ใบตัด 14 นิ้ว บาท/ใบ
-const FRAME_LABOR=150; // บาท/ตร.ม. พื้นที่หลังคา ค่าแรงทำโครง
+const FRAME_LABOR={hip:400, other:250}; // บาท/ตร.ม. พื้นที่หลังคา ค่าแรงทำโครง: ปั้นหยา 400 · ทรงอื่น 250
+const frameRate=()=>FRAME_LABOR[state.cat]||FRAME_LABOR.other;
 const INSTALL={std:60, premium:70, snap:50, snapPU:60}; // บาท/ม. ความยาวแผ่น (รวมอุปกรณ์)
 const DEF_WIDTH={std:0.76, spanish:0.74, snap:0.30};
 const finishOf=()=>state.sheet.color==='zinc'?'zinc':'color';
@@ -957,8 +958,8 @@ function calc(){
   $('consTbl').innerHTML=`<thead><tr><th>วัสดุสิ้นเปลือง (ประมาณการ)</th><th>จำนวน / ราคา</th><th>คิดจาก</th></tr></thead><tbody>
     <tr><td>ลวดเชื่อม 2.6 มม. (กล่องละ ${fmt(CONS.packKg)} กก.)</td><td><b>${cs.packs} กล่อง</b>${BRANCH?` × ${ROD_PRICE} ฿`:''}<br>= <b>${money(cs.packs*ROD_PRICE)} ฿</b></td><td>${cs.joints} จุดเชื่อม · แนวเชื่อมรวม ≈ ${fmt(cs.weldM,0)} ม. · ≈ ${cs.rods} เส้น</td></tr>
     <tr><td>ใบตัดเหล็ก 14 นิ้ว (แท่นตัด)</td><td><b>${cs.discs} ใบ</b>${BRANCH?` × ${DISC_PRICE} ฿`:''}<br>= <b>${money(cs.discs*DISC_PRICE)} ฿</b></td><td>≈ ${cs.cuts} รอยตัด (เหล็กใหญ่คิดสึกมากกว่า)</td></tr></tbody>`;
-  const rodsP=cs.packs*ROD_PRICE+cs.discs*DISC_PRICE, roofT=SH?SH.total:0, frameL=state.frame?roofArea*FRAME_LABOR:0, allT=grand+rodsP+roofT+frameL;
-  if(state.frame) $('consTbl').innerHTML+=`<tbody><tr><td>ค่าแรงทำโครงหลังคา</td><td><b>${money(frameL)} ฿</b></td><td>พื้นที่หลังคา ${fmt(roofArea,1)} ตร.ม.${BRANCH?` × ${FRAME_LABOR} ฿/ตร.ม.`:''}</td></tr></tbody>`;
+  const rodsP=cs.packs*ROD_PRICE+cs.discs*DISC_PRICE, roofT=SH?SH.total:0, frameL=state.frame?roofArea*frameRate():0, allT=grand+rodsP+roofT+frameL;
+  if(state.frame) $('consTbl').innerHTML+=`<tbody><tr><td>ค่าแรงทำโครงหลังคา</td><td><b>${money(frameL)} ฿</b></td><td>พื้นที่หลังคา ${fmt(roofArea,1)} ตร.ม.${BRANCH?` × ${frameRate()} ฿/ตร.ม.`:''}</td></tr></tbody>`;
   window._totals={rodsP,roofT,frameL,allT,missing:!!((SH&&SH.missing)||(conc&&!concPrice))};
   $('kpis').innerHTML += (SH? kpi(money(roofT)+' ฿','แผ่นหลังคา + อุปกรณ์'+(SH.missing?' (บางรายการรอราคา)':'')) : '')
     + (state.frame? kpi(money(frameL)+' ฿','ค่าแรงทำโครงหลังคา') : '')
