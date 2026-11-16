@@ -157,6 +157,8 @@ input,select{width:100%;padding:9px 10px;border:1px solid var(--line);border-rad
 @media(min-width:700px){.cv-hero h1{font-size:46px}}
 #consTbl td,#consTbl th{white-space:normal;vertical-align:top}
 #consTbl td:nth-child(2){white-space:nowrap}
+#sheetTbl td,#sheetTbl th{white-space:normal;vertical-align:top}
+#sheetTbl td:nth-child(2){white-space:nowrap}
 .tapnote{font-size:12.5px;color:var(--navy);background:#fff8e1;border:1px solid #f2d27a;border-radius:8px;padding:6px 10px;margin-bottom:8px}
 .lb.mem i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:0}
 .hint{font-size:12px;color:var(--mute);margin-top:6px}
@@ -268,6 +270,20 @@ details summary{cursor:pointer;color:var(--navy);font-weight:600;font-size:14px}
       <div class="grid2" id="consSet"></div>
     </details>
   </div>
+  <div class="card hide step" id="sheetCard">
+    <h2><span class="n">5</span>แผ่นหลังคา (ถ้าต้องการ)</h2>
+    <div class="pick" id="sheetPick"></div>
+    <div id="sheetOpts" style="display:none">
+      <div class="sub">ฉนวนกันความร้อน</div>
+      <div class="seg2" id="puSeg"><button data-v="0" class="on">ไม่ติดฉนวน</button><button data-v="1">ติด PU Foam</button></div>
+      <div class="grid2">
+        <div><label>ความกว้างใช้งานต่อแผ่น (ม.)</label><input id="shW" type="number" step="0.01" inputmode="decimal" placeholder="เช่น 0.76"></div>
+        <div><label>ความหนาแผ่น (มม.)</label><input id="shT" type="number" step="0.01" inputmode="decimal" placeholder="เช่น 0.35"></div>
+      </div>
+      <div class="hint" id="sheetHint"></div>
+    </div>
+  </div>
+
 </section>
 
 <section class="col hide step" id="resultCol">
@@ -295,6 +311,7 @@ details summary{cursor:pointer;color:var(--navy);font-weight:600;font-size:14px}
     <div class="kpis" id="kpis"></div>
     <div class="tw"><table id="boq"></table></div>
     <div class="tw" style="margin-top:10px"><table id="consTbl"></table></div>
+    <div class="tw" style="margin-top:10px"><table id="sheetTbl"></table></div>
     <div style="margin-top:12px"><button class="btn" id="copyBtn">คัดลอกสรุป</button><span id="copied"></span></div>
     <p class="note" id="notes"></p>
   </div>
@@ -416,7 +433,7 @@ const FIELDS = {
   side:{l:'กันสาดยื่นจากด้าน', sel:[['eave','ด้านชายคา (ด้านยาว)'],['gable','ด้านหน้าจั่ว']]},
   colSp:{l:'ระยะห่างเสา ไม่ต่ำกว่า (ม.)', st:0.1}, rafSp:{l:'ระยะห่างจันทัน ไม่เกิน (ม.)', st:0.1}, pSp:{l:'ระยะวางแป ไม่เกิน (ม.)', st:0.1},
 };
-const state = {cat:null, sub:null, col:'steel', colSize:'4x4_15', view:'line', p:{}};
+const state = {cat:null, sub:null, col:'steel', colSize:'4x4_15', view:'line', p:{}, sheet:{type:'none', pu:false, w:null, t:null}};
 const $ = id => document.getElementById(id);
 const rad = d => d*Math.PI/180;
 const fmt=(n,d=2)=>(+n).toLocaleString('th-TH',{maximumFractionDigits:d,minimumFractionDigits:0});
@@ -679,7 +696,7 @@ function barsNeeded(pieces){
 
 /* ================= UI ================= */
 function cleanP(){ const sub=SUB(state.sub); const p={...COMMON,...sub.def,...state.p}; p.colSp=Math.max(MINCOL,p.colSp||MINCOL); if(sub.noL) p.L=p.W; if(sub.noOvh) p.ovh=0; return p; }
-function loadSub(id){ state.sub=id; state.p={...COMMON,...SUB(id).def}; }
+function loadSub(id){ state.sub=id; state.p={...COMMON,...SUB(id).def}; if(SHEETS[state.sheet.type].pSp) state.p.pSp=SHEETS[state.sheet.type].pSp; }
 const optHTML=(on,img,title,small,attr)=>`<button class="opt ${on?'on':''}" ${attr}><span class="tick">✓</span>${img}<b>${title}</b><small>${small}</small></button>`;
 
 function renderPickers(){
@@ -702,6 +719,16 @@ function renderPickers(){
       if(first) setTimeout(()=>$('resultCol').offsetParent&&$('resultCol').scrollIntoView({behavior:'smooth',block:'start'}),60); });
   }
   if(!ready) return;
+
+  $('sheetPick').innerHTML=Object.entries(SHEETS).map(([k,o])=>optHTML(k===state.sheet.type,o.svg,o.n,o.d,`data-sh="${k}"`)).join('');
+  $('sheetPick').querySelectorAll('[data-sh]').forEach(b=>b.onclick=()=>{ const prev=SHEETS[state.sheet.type], nx=SHEETS[b.dataset.sh]; state.sheet.type=b.dataset.sh;
+    if(nx.pSp) state.p.pSp=nx.pSp; else if(prev.pSp && state.p.pSp===prev.pSp) state.p.pSp=COMMON.pSp; refresh(); });
+  $('sheetOpts').style.display = state.sheet.type==='none'?'none':'';
+  $('puSeg').querySelectorAll('button').forEach(b=>{ b.classList.toggle('on',(b.dataset.v==='1')===state.sheet.pu); b.onclick=()=>{ state.sheet.pu=b.dataset.v==='1'; refresh(); }; });
+  $('shW').value=state.sheet.w||''; $('shT').value=state.sheet.t||'';
+  $('shW').oninput=()=>{ const v=parseFloat($('shW').value); state.sheet.w=v>0?v:null; calc(); };
+  $('shT').oninput=()=>{ const v=parseFloat($('shT').value); state.sheet.t=v>0?v:null; calc(); };
+  const sh=SHEETS[state.sheet.type]; $('sheetHint').innerHTML = sh.pSp ? `ℹ️ ${sh.n} ใช้ระยะแป <b>${fmt(sh.pSp)} ม.</b> — แอปตั้งระยะแปให้อัตโนมัติแล้ว (แก้ได้ที่หมายเลขระยะแป)` : '';
 
   const sub=SUB(state.sub);
   $('colCard').classList.toggle('hide', !!sub.noCol);
@@ -748,6 +775,12 @@ const ORDER=['pur','raf','arm','ridge','king','hip','valley','knee','dorm','brac
 const RAFCATS=['king','arm','raf','ridge','hip','valley','knee','dorm','brace'];
 function sizes(){ const r=S($('rSize').value), b=S($('bSize').value), o={pur:S($('pSize').value), beam:b, plate:b, col:S(state.colSize)}; RAFCATS.forEach(c=>o[c]=r); return o; }
 
+const SHEETS={
+  none:{n:'ไม่รวมแผ่นหลังคา', d:'คำนวณเฉพาะโครงเหล็ก', svg:'<svg viewBox="0 0 150 100"><rect x="15" y="40" width="120" height="8" fill="#dbe4f3" stroke="#1b2d5b" stroke-width="2"/><g stroke="#1b2d5b" stroke-width="3"><line x1="30" y1="48" x2="30" y2="80"/><line x1="75" y1="48" x2="75" y2="80"/><line x1="120" y1="48" x2="120" y2="80"/></g></svg>'},
+  std:{n:'เมทัลชีทลอนมาตรฐาน', d:'ลอนทั่วไป แปห่างตามปกติ', svg:'<svg viewBox="0 0 150 100"><path d="M10 60 L22 60 L28 44 L40 44 L46 60 L58 60 L64 44 L76 44 L82 60 L94 60 L100 44 L112 44 L118 60 L140 60" fill="none" stroke="#1b2d5b" stroke-width="3" stroke-linejoin="round"/><path d="M10 60 L140 60 L140 66 L10 66 Z" fill="#dbe4f3"/></svg>'},
+  spanish:{n:'ลอนสเปน', d:'ลายกระเบื้อง · แปห่าง 0.5 ม.', pSp:0.5, svg:'<svg viewBox="0 0 150 100"><path d="M10 64 Q22 38 34 64 Q46 38 58 64 Q70 38 82 64 Q94 38 106 64 Q118 38 130 64 L140 64" fill="#dbe4f3" stroke="#1b2d5b" stroke-width="3" stroke-linejoin="round"/></svg>'},
+  snap:{n:'ลอน Snap Lock', d:'ไม่เจาะสกรูทะลุ · แปห่าง 0.5 ม.', pSp:0.5, svg:'<svg viewBox="0 0 150 100"><path d="M10 64 L30 64 L30 36 L36 36 L36 64 L70 64 L70 36 L76 36 L76 64 L110 64 L110 36 L116 36 L116 64 L140 64" fill="none" stroke="#1b2d5b" stroke-width="3" stroke-linejoin="round"/><path d="M10 64 L140 64 L140 70 L10 70 Z" fill="#dbe4f3"/></svg>'},
+};
 const SPK=['colSp','rafSp','pSp']; const MINCOL=3.0;
 function visFace(R){ if(!R.faces.length) return null; const fc=f=>{const q=facePts(f); return q.reduce((a,b)=>a.add(b),V(0,0,0)).multiplyScalar(1/q.length);};
   return R.faces.reduce((a,b)=>{const ma=fc(a),mb=fc(b); return (mb.z-mb.x*0.5)>(ma.z-ma.x*0.5)?b:a;}); }
@@ -785,6 +818,16 @@ function consumables(R,parts,sz){
   const w=1+CONS.waste/100, rods=Math.ceil(weld/CONS.weldPerRod*w), packs=Math.max(1,Math.ceil(rods/CONS.rodsPerPack)), discs=Math.max(1,Math.ceil(cutEq*w/CONS.cutsPerDisc));
   return {joints:Math.round(joints),weldM:weld/100,rods,packs,cuts,discs};
 }
+function sheetCalc(R,parts){
+  if(state.sheet.type==='none') return null;
+  const w=state.sheet.w, faces=[]; let area=0, sheets=0, meters=0, eave=0;
+  R.faces.forEach(f=>{ const vmax=Math.max(...f.poly.map(q=>q[1])), umax=Math.max(...f.poly.map(q=>q[0])), a=area_(f.poly)/f.cos, len=vmax/f.cos;
+    area+=a; eave+=umax; const n=w?Math.ceil(umax/w-1e-9):null; if(n){ sheets+=n; meters+=Math.min(n*len, a/w*1.05+len); } faces.push({n,len,var:a<umax*len*0.98}); });
+  if(R.curve){ const c=R.curve, arc=R.dims.arc||0; area+=arc*c.Lp; eave+=c.Lp; const n=w?Math.ceil(c.Lp/w-1e-9):null; if(n){ sheets+=n; meters+=n*arc; } faces.push({n,len:arc}); }
+  const sumCat=cat=>parts.filter(x=>x.cat===cat).reduce((a,b)=>a+b.len,0);
+  return {name:SHEETS[state.sheet.type].n, area, sheets:w?sheets:null, meters:w?meters:null, faces, ridge:sumCat('ridge')+sumCat('hip'), valley:sumCat('valley'), eave};
+}
+const area_=a=>area(a);
 function calc(){
   if(!state.sub) return;
   const sub=SUB(state.sub), p=cleanP();
@@ -819,6 +862,16 @@ function calc(){
   h+=`</tbody><tfoot><tr><td colspan="4">รวม</td><td>${totBars}</td><td></td><td>${fmt(totKg,1)}</td><td>${money(grand)}</td>${COST?`<td>${money(steelCost)}</td><td>${money(steelSell-steelCost)}</td>`:''}</tr></tfoot>`;
   $('boq').innerHTML=h;
   const cs=consumables(R,parts,sz); window._cons=cs;
+  const SH=sheetCalc(R,parts); window._sheet=SH;
+  $('sheetTbl').innerHTML = !SH ? '' : `<thead><tr><th>แผ่นหลังคา</th><th>จำนวน</th><th>รายละเอียด</th></tr></thead><tbody>
+    <tr><td>${SH.name}${state.sheet.t?` หนา ${fmt(state.sheet.t)} มม.`:''}${state.sheet.pu?' + PU Foam':''}</td><td><b>${fmt(SH.area,1)} ตร.ม.</b>${SH.sheets?`<br>${SH.sheets} แผ่น`:''}</td>
+      <td>${SH.faces.map(f=>(f.n?`${f.n} แผ่น×`:'')+(f.var?`ยาวสุด ${fmt(f.len)} ม. (ตัดเฉียงตามตะเฆ่)`:`ยาว ${fmt(f.len)} ม.`)).join(' · ')}${SH.meters?`<br>รวมความยาวแผ่น ≈ ${fmt(SH.meters,1)} ม.`:'<br><span style="color:#8a5a00">ใส่ความกว้างใช้งานต่อแผ่นเพื่อนับจำนวนแผ่น</span>'}</td></tr>
+    ${state.sheet.pu?`<tr><td>ฉนวน PU Foam</td><td><b>${fmt(SH.area,1)} ตร.ม.</b></td><td>เท่ากับพื้นที่แผ่นหลังคา</td></tr>`:''}
+    ${SH.ridge>0?`<tr><td>ครอบสัน / ครอบตะเฆ่</td><td><b>${fmt(SH.ridge,1)} ม.</b></td><td>อกไก่ + ตะเฆ่สัน</td></tr>`:''}
+    ${SH.valley>0?`<tr><td>รางน้ำท้องร่อง</td><td><b>${fmt(SH.valley,1)} ม.</b></td><td>ตามแนวท้องร่อง</td></tr>`:''}
+    ${SH.eave>0?`<tr><td>ชายคา (เชิงชาย/ปิดชาย)</td><td><b>${fmt(SH.eave,1)} ม.</b></td><td>ความยาวขอบล่างหลังคารวม</td></tr>`:''}
+    </tbody>`;
+
   $('consTbl').innerHTML=`<thead><tr><th>วัสดุสิ้นเปลือง (ประมาณการ)</th><th>จำนวน</th><th>คิดจาก</th></tr></thead><tbody>
     <tr><td>ลวดเชื่อม 2.6 มม.</td><td><b>${cs.packs} ห่อ</b> (ห่อละ ${fmt(CONS.packKg)} กก.)</td><td>${cs.joints} จุดเชื่อม · แนวเชื่อมรวม ≈ ${fmt(cs.weldM,0)} ม. · ≈ ${cs.rods} เส้น</td></tr>
     <tr><td>ใบตัดเหล็ก 14 นิ้ว (แท่นตัด)</td><td><b>${cs.discs} ใบ</b></td><td>≈ ${cs.cuts} รอยตัด (เหล็กใหญ่คิดสึกมากกว่า)</td></tr></tbody>`;
@@ -831,7 +884,7 @@ function calc(){
   if(sub.id==='a_bend') n.push(`ส่วนโค้งใช้แผ่นหลังคาโค้งสำเร็จ: ยาวตามโค้ง ${fmt(R.dims.arc)} ม. × ยาวตามผนัง ${fmt(p.L+0.2)} ม. (โครงเหล็กตรง ปลายจันทันมีขายึดดิ่งลงทุกตัว + แปปลายล่าง 1 แนว สำหรับยึดแผ่นโค้ง)`);
   if(['b_fly','m2'].includes(sub.id)) n.push('ยังไม่รวมรางน้ำสเตนเลส/สังกะสีที่ท้องร่อง');
   n.push('ราคาเหล็กใช้ราคาขายหน้าร้านต่อเส้น (6 ม.) ตาม price list ของ StarTechSteel');
-  n.push('ยังไม่รวม: แผ่นหลังคา, ครอบ, เพลทฐานเสา/พุก, ฐานราก, สกรู, ลวดเชื่อม, สีกันสนิม, ค่าแรง และค่าขนส่ง');
+  n.push('ยังไม่รวม: '+(state.sheet.type==='none'?'แผ่นหลังคา, ':'ราคาแผ่นหลังคา/ฉนวน (รอ price list), ')+'ราคาครอบ, เพลทฐานเสา/พุก, ฐานราก, สกรู, ราคาลวดเชื่อม/ใบตัด, สีกันสนิม, ค่าแรง และค่าขนส่ง');
   $('notes').innerHTML=n.map(x=>'• '+x).join('<br>');
 
   const m=state.view;
@@ -857,6 +910,7 @@ $('copyBtn').onclick=async()=>{
   s.items.forEach(it=>txt+=`- ${it.name} ${it.size.short}: ${it.bars} เส้น × ${money(it.size.sell)} = ${money(it.price)} ฿${COST?` (ทุน ${money(it.cost)})`:''}\n`);
   if(s.conc) txt+=`- เสาคอนกรีต: ${s.concCount} ต้น${s.concPrice?' = '+money(s.concCount*s.concPrice)+' ฿':''}\n`;
   txt+=`- ลวดเชื่อม 2.6 มม.: ${window._cons.packs} ห่อ · ใบตัดเหล็ก 14": ${window._cons.discs} ใบ (ประมาณการ)\n`;
+  if(window._sheet){ const h=window._sheet; txt+=`- แผ่นหลังคา ${h.name}${state.sheet.pu?' + PU Foam':''}: ${fmt(h.area,1)} ตร.ม.${h.sheets?` (${h.sheets} แผ่น)`:''}${h.ridge>0?` · ครอบ ${fmt(h.ridge,1)} ม.`:''}\n`; }
   txt+=`รวมเหล็ก ${s.totBars} เส้น ${fmt(s.totKg,1)} กก.\nราคาขายวัสดุโครง ${money(s.grand)} ฿`+(COST?`\nต้นทุนเหล็ก ${money(s.steelCost)} ฿ · กำไร ${money(s.steelSell-s.steelCost)} ฿`:'');
   try{ await navigator.clipboard.writeText(txt); $('copied').textContent='คัดลอกแล้ว'; } catch(e){ $('copied').textContent='คัดลอกไม่ได้ในหน้านี้'; }
   setTimeout(()=>$('copied').textContent='',2000);
@@ -1228,7 +1282,7 @@ function jobSummary(){
   return { roof:`${s.cat.name}${s.cat.subs.length>1?' › '+s.sub.name:''}`, width:s.p.W, length:s.p.L, height:s.p.H, slope:s.p.slope, overhang:s.p.ovh,
     column: s.sub.noCol?'ไม่มีเสา':(state.col==='steel'?'เสาเหล็ก '+S(state.colSize).short:'เสาคอนกรีต'),
     roofArea:+s.roofArea.toFixed(1), items:s.items.map(i=>({name:i.name,size:i.size.short,bars:i.bars,unitPrice:i.size.sell,amount:i.price})),
-    concreteColumns:s.conc?s.concCount:0, weldingRodPacks:window._cons?window._cons.packs:null, cuttingDiscs:window._cons?window._cons.discs:null, totalBars:s.totBars, totalKg:+s.totKg.toFixed(1), sellTotal:s.grand };
+    concreteColumns:s.conc?s.concCount:0, weldingRodPacks:window._cons?window._cons.packs:null, roofSheet:window._sheet?{type:window._sheet.name,pu:state.sheet.pu,thicknessMm:state.sheet.t,coverWidthM:state.sheet.w,areaM2:+window._sheet.area.toFixed(1),sheets:window._sheet.sheets,ridgeCapM:+window._sheet.ridge.toFixed(1),valleyM:+window._sheet.valley.toFixed(1)}:null, cuttingDiscs:window._cons?window._cons.discs:null, totalBars:s.totBars, totalKg:+s.totKg.toFixed(1), sellTotal:s.grand };
 }
 function msgText(pl){
   const c=pl.customer, j=pl.job, l=pl.location;
@@ -1237,6 +1291,7 @@ function msgText(pl){
   if(j){ t+=`\nงาน: ${j.roof} ${fmt(j.width)}×${fmt(j.length)} ม. สูง ${fmt(j.height)} ม. ลาด ${j.slope}° · ${j.column}\n`;
     j.items.forEach(i=>t+=`- ${i.name} ${i.size}: ${i.bars} เส้น = ${money(i.amount)} ฿\n`);
     if(j.concreteColumns) t+=`- เสาคอนกรีต ${j.concreteColumns} ต้น\n`;
+    if(j.roofSheet) t+=`- แผ่นหลังคา ${j.roofSheet.type}${j.roofSheet.pu?' + PU Foam':''}${j.roofSheet.thicknessMm?` หนา ${j.roofSheet.thicknessMm} มม.`:''}: ${j.roofSheet.areaM2} ตร.ม.${j.roofSheet.sheets?` (${j.roofSheet.sheets} แผ่น)`:''}${j.roofSheet.ridgeCapM?` · ครอบ ${j.roofSheet.ridgeCapM} ม.`:''}\n`;
     if(j.weldingRodPacks) t+=`- ลวดเชื่อม 2.6 มม. ${j.weldingRodPacks} ห่อ · ใบตัด 14" ${j.cuttingDiscs} ใบ (ประมาณการ)\n`;
     t+=`รวมเหล็ก ${j.totalBars} เส้น · ราคาขายวัสดุโครง ${money(j.sellTotal)} ฿ · พื้นที่หลังคา ${j.roofArea} ตร.ม.`; }
   return t;
