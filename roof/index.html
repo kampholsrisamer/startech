@@ -743,7 +743,6 @@ function renderPickers(){
 
   const segW=(id,key,conv)=>$(id).querySelectorAll('button').forEach(b=>{ const v=conv?conv(b.dataset.v):b.dataset.v; b.classList.toggle('on',state.sheet[key]===v); b.onclick=()=>{ state.sheet[key]=v; refresh(); }; });
   segW('gradeSeg','grade'); segW('puTSeg','puT',Number); segW('instSeg','install',v=>v==='1');
-  if(state.sheet.type==='snap' && state.sheet.color==='zinc') state.sheet.color='navy';
   $('insSeg').querySelectorAll('button').forEach(b=>{ b.classList.toggle('on',b.dataset.v===state.sheet.ins); b.onclick=()=>{ state.sheet.ins=b.dataset.v; state.sheet.pu=b.dataset.v==='pu'||b.dataset.v==='sand'; refresh(); }; });
   $('puOpts').style.display=state.sheet.pu?'':'none'; $('puPatBox').style.display=state.sheet.ins==='pu'?'':'none';
   $('puPat').innerHTML=PU_PATS.map(([k,n])=>`<option value="${k}" ${k===state.sheet.puPat?'selected':''}>${n}</option>`).join(''); $('puPat').onchange=()=>{ state.sheet.puPat=$('puPat').value; calc(); };
@@ -751,7 +750,7 @@ function renderPickers(){
   $('shT').innerHTML=tl.map(([k,pr,lab])=>`<option value="${k}" ${k===state.sheet.t?'selected':''}>${lab||k+' มม.'}${BRANCH?(pr==null?' · รอราคา':` · ${money(pr+(PROFILE_ADD[state.sheet.type]||PROFILE_ADD[state.sub]||0))} บ./ม.`):''}</option>`).join('');
   $('shT').onchange=()=>{ state.sheet.t=$('shT').value; calc(); };
   if(state.sheet.w==null && DEF_WIDTH[state.sheet.type]) state.sheet.w=DEF_WIDTH[state.sheet.type];
-  $('colorPick').innerHTML=ROOFCOLORS.filter(c=>!(state.sheet.type==='snap'&&c[0]==='zinc')).map(([id,n,h])=>`<button class="${id===state.sheet.color?'on':''}" data-rc="${id}" title="${n}" style="background:${h}"></button>`).join('');
+  $('colorPick').innerHTML=ROOFCOLORS.map(([id,n,h])=>`<button class="${id===state.sheet.color?'on':''}" data-rc="${id}" title="${n}" style="background:${h}"></button>`).join('');
   $('colorName').textContent='· '+RC(state.sheet.color)[1]+(state.sheet.color==='zinc'?' (อลูซิงค์ ไม่ทำสี)':' (เหล็กสี)');
   $('colorPick').querySelectorAll('[data-rc]').forEach(b=>b.onclick=()=>{ state.sheet.color=b.dataset.rc; refresh(); });
   $('shW').value=state.sheet.w||'';
@@ -829,7 +828,13 @@ const DISC_PRICE=100;                                   // ใบตัด 14 �
 const DEF_WIDTH={std:0.76, spanish:0.74, snap:null};
 const finishOf=()=>state.sheet.color==='zinc'?'zinc':'color';
 const INS_LABEL=()=>{ const st=state.sheet; return st.ins==='pe'?'PE 5 มม.':st.ins==='pu'?`PU ${st.puT===1?'25':'50'} มม. ${PU_PATS.find(x=>x[0]===st.puPat)[1]}`:st.ins==='sand'?`หลังคาแซนด์วิช PU ${st.puT===1?'25':'50'} มม. ท้องเหล็ก`:''; };
-function thkList(){ const g=SHEET_PRICE[state.sheet.grade]; return state.sheet.type==='snap'? g.snap : g[finishOf()]; }
+function thkList(){ const g=SHEET_PRICE[state.sheet.grade], fin=g[finishOf()];
+  // ทุกรูปลอนรีดได้ทุกความหนา: รวมความหนาทั้งหมดของเกรดนั้น ราคาตาม price list ถ้าไม่มีให้รอราคา
+  const keys=[]; [...g.zinc,...g.color].forEach(([k,,lab])=>{ if(!keys.find(x=>x[0]===k)) keys.push([k,lab]); });
+  keys.sort((x,y)=>parseFloat(x[0])-parseFloat(y[0])||x[0].localeCompare(y[0]));
+  if(finishOf()==='color') for(let i=keys.length-1;i>=0;i--) if(keys[i][0].endsWith('Z')) keys.splice(i,1);   // Zincalume AZ-150 มีเฉพาะอลูซิงค์
+  return keys.map(([k,lab])=>{ const f=fin.find(x=>x[0]===k), sp=state.sheet.type==='snap'?(finishOf()==='color'?g.snap.find(x=>x[0]===k):null):f;
+    return [k, sp?sp[1]:null, (f&&f[2])||lab]; }); }
 const SPK=['colSp','rafSp','pSp']; const MINCOL=3.0;
 function visFace(R){ if(!R.faces.length) return null; const fc=f=>{const q=facePts(f); return q.reduce((a,b)=>a.add(b),V(0,0,0)).multiplyScalar(1/q.length);};
   return R.faces.reduce((a,b)=>{const ma=fc(a),mb=fc(b); return (mb.z-mb.x*0.5)>(ma.z-ma.x*0.5)?b:a;}); }
