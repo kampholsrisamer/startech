@@ -155,6 +155,8 @@ input,select{width:100%;padding:9px 10px;border:1px solid var(--line);border-rad
 .hd-row{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .hd-home{flex:none;background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:8px;padding:5px 10px;font:inherit;font-size:12.5px;cursor:pointer}
 @media(min-width:700px){.cv-hero h1{font-size:46px}}
+#consTbl td,#consTbl th{white-space:normal;vertical-align:top}
+#consTbl td:nth-child(2){white-space:nowrap}
 .tapnote{font-size:12.5px;color:var(--navy);background:#fff8e1;border:1px solid #f2d27a;border-radius:8px;padding:6px 10px;margin-bottom:8px}
 .lb.mem i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:0}
 .hint{font-size:12px;color:var(--mute);margin-top:6px}
@@ -260,6 +262,10 @@ details summary{cursor:pointer;color:var(--navy);font-weight:600;font-size:14px}
       <summary>ตารางราคาเหล็ก (ต่อเส้น 6 ม.)</summary>
       <div id="steelTable"></div>
     </details>
+    <details style="margin-top:10px">
+      <summary>ตั้งค่าอัตราใช้ลวดเชื่อม / ใบตัด</summary>
+      <div class="grid2" id="consSet"></div>
+    </details>
   </div>
 </section>
 
@@ -287,6 +293,7 @@ details summary{cursor:pointer;color:var(--navy);font-weight:600;font-size:14px}
     <div id="warns"></div>
     <div class="kpis" id="kpis"></div>
     <div class="tw"><table id="boq"></table></div>
+    <div class="tw" style="margin-top:10px"><table id="consTbl"></table></div>
     <div style="margin-top:12px"><button class="btn" id="copyBtn">คัดลอกสรุป</button><span id="copied"></span></div>
     <p class="note" id="notes"></p>
   </div>
@@ -340,6 +347,7 @@ const STEEL = [ // ราคาจาก price list StarTechSteel (ราคา�
   {id:'4x4_15',   name:'เหล็กกล่อง 4"×4" หนา 1.5',     short:'4×4" (1.5)',     kg:24.00, sell:850, w:0.1016, h:0.1016},
   {id:'mon_07',   name:'แปโมเนีย 0.70 มม.',            short:'แปโมเนีย 0.7',   kg:3.22,  sell:130, w:0.03,   h:0.05},
 ];
+const CONS={weldPerRod:10, rodsPerPack:150, packKg:2, cutsPerDisc:25, waste:10}; // อัตราลวดเชื่อม/ใบตัด
 let COST=null, BRANCH=false; const COST_ENC={"salt": "frqlXYxEqicxLbWaV0+49w==", "iv": "/+slSeTEj8YeqJ7+", "ct": "CeVSqV9RBriW57mN6hkM6Z6U8PbAgCELqgMIbYkyunl6vlfeVGGpuDLKrosj1mXfoDqCVb8rNbtoxjRL+w8BuUlbEqEDy+zxx4fko5HmNSMNxZO8vg5OnwnjA7H4S2IEK6ExOm3AEEYdsBoqwyraSK9AR5bc+MIKsi9DNeLZ37NM5n8euWOSHQvPJlIwytGp4MFcBtgVHGZcauWwXENDIZinTlwBbVXSP4vW33e3q9RdKmOo5xxbWwjOyMVHlyPOyQ47YwASpEQDj6eqigS/dGJELOs=", "it": 250000};
 
 const S = id => STEEL.find(s=>s.id===id);
@@ -628,21 +636,22 @@ function expand(R,p){
   const parts=[];
   const push=(cat,pts,len)=>{ if(len>0.2) parts.push({cat,pts,len}); };
   R.mem.forEach(m=>push(m.cat,m.pts,m.pts[0].distanceTo(m.pts[1])));
-  let roofArea=0;
+  let roofArea=0; R.cross=0;
   const P=(f,u,v)=>f.E0.clone().addScaledVector(f.e,u).addScaledVector(f.d,v).add(V(0,v*f.tan,0));
   R.faces.forEach(f=>{
     roofArea+=area(f.poly)/f.cos;
     const vmax=Math.max(...f.poly.map(q=>q[1])), umax=Math.max(...f.poly.map(q=>q[0]));
     const slen=vmax/f.cos, rows=Math.ceil(slen/p.pSp-1e-9)+1;
-    for(let i=0;i<rows;i++){ const v=i*vmax/(rows-1), s=span(f.poly,v,1); if(s) push('pur',[P(f,s[0],v),P(f,s[1],v)],s[1]-s[0]); }
-    raftU(umax,p.rafSp).forEach(u=>{ const s=span(f.poly,u,0); if(s) push('raf',[P(f,u,s[0]),P(f,u,s[1])],(s[1]-s[0])/f.cos); });
+    const rs=[]; raftU(umax,p.rafSp).forEach(u=>{ const s=span(f.poly,u,0); if(s){ push('raf',[P(f,u,s[0]),P(f,u,s[1])],(s[1]-s[0])/f.cos); if((s[1]-s[0])/f.cos>0.2) rs.push([u,s[0],s[1]]); } });
+    for(let i=0;i<rows;i++){ const v=i*vmax/(rows-1), s=span(f.poly,v,1); if(s){ push('pur',[P(f,s[0],v),P(f,s[1],v)],s[1]-s[0]);
+      if(s[1]-s[0]>0.2) R.cross+=rs.filter(([u,a,b])=>u>=s[0]-1e-6&&u<=s[1]+1e-6&&v>=a-1e-6&&v<=b+1e-6).length; } }
   });
   if(R.curve){
     const c=R.curve, cum=[0]; for(let i=1;i<c.pts.length;i++) cum.push(cum[i-1]+Math.hypot(c.pts[i][0]-c.pts[i-1][0],c.pts[i][1]-c.pts[i-1][1]));
     const arc=cum[cum.length-1]; roofArea+=arc*c.Lp; R.dims.arc=arc;
     if(!c.sheetOnly){
     raftU(c.Lp,p.rafSp).forEach(u=>push('raf',c.pts.map(q=>V(c.x0+u,q[1],q[0])),arc));
-    const rows=Math.ceil(arc/p.pSp-1e-9)+1;
+    const rows=Math.ceil(arc/p.pSp-1e-9)+1; R.cross+=rows*raftU(c.Lp,p.rafSp).length;
     for(let i=0;i<rows;i++){ const s=i*arc/(rows-1); let k=1; while(k<cum.length-1&&cum[k]<s)k++;
       const tt=(s-cum[k-1])/((cum[k]-cum[k-1])||1), z=c.pts[k-1][0]+tt*(c.pts[k][0]-c.pts[k-1][0]), yy=c.pts[k-1][1]+tt*(c.pts[k][1]-c.pts[k-1][1]);
       push('pur',[V(c.x0,yy,z),V(c.x0+c.Lp,yy,z)],c.Lp); }
@@ -728,6 +737,9 @@ fillSelect($('pSize'),'2x1_12'); fillSelect($('rSize'),'4x2_12'); fillSelect($('
 function renderSteelTable(){ $('steelTable').innerHTML = `<div class="tw"><table><thead><tr><th>รายการ</th><th>กก./เส้น</th><th>ราคาขาย/เส้น</th>${COST?'<th>ทุน/เส้น (รวม VAT)</th><th>กำไร/เส้น</th>':''}</tr></thead><tbody>`+
   STEEL.map(s=>`<tr><td>${s.name}</td><td>${fmt(s.kg)}</td><td>${money(s.sell)}</td>${COST?`<td>${fmt(COST[s.id])}</td><td>${fmt(s.sell-COST[s.id])}</td>`:''}</tr>`).join('')+'</tbody></table></div>'; }
 renderSteelTable();
+const CONSF=[['weldPerRod','ลวด 1 เส้น เชื่อมได้ยาว (ซม.)',1],['rodsPerPack','ลวด 1 ห่อ มีกี่เส้น',10],['packKg','น้ำหนักต่อห่อ (กก.)',0.5],['cutsPerDisc','ใบตัด 1 ใบ ตัดเหล็ก 2×1 ได้ (รอย)',1],['waste','เผื่อเสีย (%)',1]];
+$('consSet').innerHTML=CONSF.map(([k,l,st])=>`<div><label>${l}</label><input type="number" step="${st}" data-cons="${k}" value="${CONS[k]}"></div>`).join('');
+document.querySelectorAll('[data-cons]').forEach(i=>i.addEventListener('input',()=>{ const v=parseFloat(i.value); if(v>0||(i.dataset.cons==='waste'&&v>=0)){ CONS[i.dataset.cons]=v; calc(); } }));
 $('viewToggle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ $('viewToggle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); state.view=b.dataset.v; calc(); });
 
 const CATNAME={king:'ดั้งจั่ว',arm:'ขายึดดิ่งปลายจันทัน',pur:'แป',raf:'จันทัน',ridge:'อกไก่',hip:'ตะเฆ่สัน',valley:'ท้องร่อง (รางน้ำ)',knee:'คานหักมุม',dorm:'โครงหน้าต่างหลังคา',beam:'คานหัวเสา',plate:'เหล็กยึดผนัง',brace:'ค้ำยัน',col:'เสาเหล็ก'};
@@ -755,6 +767,23 @@ function spText(key,i){
     : `${head} = ${fmt(i.len/i.set)} ช่วง <b>ไม่ลงตัว</b><br>แอปจึงแบ่งเป็น <b>${i.n} ช่วงเท่ากัน ช่วงละ ${fmt(i.act)} ม.</b> → ${i.n+1} ${i.unit}<br><span style="color:#66718a">ระยะเสาจริงจะห่างขึ้นเล็กน้อย เพราะกำหนดระยะเสาไม่ต่ำกว่า ${fmt(MINCOL)} ม.</span>`; }
   return exact ? `${head} = ${i.n} ช่วง <b>ลงตัวพอดี</b> → ${i.n+1} ${i.unit}`
     : `${head} = ${fmt(i.len/i.set)} ช่วง <b>ไม่ลงตัว</b><br>แอปจึงแบ่งเป็น <b>${i.n} ช่วงเท่ากัน ช่วงละ ${fmt(i.act)} ม.</b> → ${i.n+1} ${i.unit}<br><span style="color:#66718a">ระยะจริงจะถี่ขึ้นเล็กน้อย ไม่ห่างเกินที่กำหนด เพื่อความแข็งแรง</span>`; }
+/* ===== วัสดุสิ้นเปลือง: ลวดเชื่อม / ใบตัด (ค่าประมาณ แก้ได้) ===== */
+function consumables(R,parts,sz){
+  const per=s=>2*(s.w+s.h)*100, ref=per(S('2x1_12')), steel=state.col==='steel';
+  let weld=0, joints=0, cuts=0, cutEq=0;
+  const J=(n,cm)=>{ joints+=n; weld+=n*cm; };
+  J(R.cross||0, 2*sz.pur.w*100);                                   // แป-จันทัน
+  parts.forEach(x=>{ const s=sz[x.cat]; if(!s) return;
+    if(['raf','ridge','hip','valley','knee','king','brace','arm','dorm'].includes(x.cat)) J(2, per(s)*0.5);   // ปลายชิ้น
+    if(x.cat==='beam') J(2, per(s)*0.75);                            // คาน-หัวเสา
+    if(x.cat==='col' && steel) J(1, per(s));                          // ฐานเสา
+    const nSplice=Math.max(0,Math.ceil(x.len/BAR-1e-9)-1); if(nSplice && !(x.cat==='col'&&!steel)) J(nSplice, per(s)); // ต่อเหล็ก
+    if(x.cat==='col' && !steel) return;
+    const rem=x.len-Math.floor(x.len/BAR+1e-9)*BAR, c=(rem>0.01?1:0)+(['raf','hip','king','brace','arm','knee'].includes(x.cat)?1:0);
+    cuts+=c; cutEq+=c*per(s)/ref; });
+  const w=1+CONS.waste/100, rods=Math.ceil(weld/CONS.weldPerRod*w), packs=Math.max(1,Math.ceil(rods/CONS.rodsPerPack)), discs=Math.max(1,Math.ceil(cutEq*w/CONS.cutsPerDisc));
+  return {joints:Math.round(joints),weldM:weld/100,rods,packs,cuts,discs};
+}
 function calc(){
   if(!state.sub) return;
   const sub=SUB(state.sub), p=cleanP();
@@ -788,6 +817,10 @@ function calc(){
   if(conc) conc.forEach(c=>h+=`<tr><td>เสาคอนกรีต</td><td>สูง ${fmt(c.h)} ม.</td><td>${c.n} ต้น</td><td>${fmt(c.h*c.n)}</td><td>–</td><td>${concPrice?money(concPrice):'–'}</td><td>–</td><td>${concPrice?money(c.n*concPrice):'–'}</td>${COST?'<td>–</td><td>–</td>':''}</tr>`);
   h+=`</tbody><tfoot><tr><td colspan="4">รวม</td><td>${totBars}</td><td></td><td>${fmt(totKg,1)}</td><td>${money(grand)}</td>${COST?`<td>${money(steelCost)}</td><td>${money(steelSell-steelCost)}</td>`:''}</tr></tfoot>`;
   $('boq').innerHTML=h;
+  const cs=consumables(R,parts,sz); window._cons=cs;
+  $('consTbl').innerHTML=`<thead><tr><th>วัสดุสิ้นเปลือง (ประมาณการ)</th><th>จำนวน</th><th>คิดจาก</th></tr></thead><tbody>
+    <tr><td>ลวดเชื่อม 2.3 มม.</td><td><b>${cs.packs} ห่อ</b> (ห่อละ ${fmt(CONS.packKg)} กก.)</td><td>${cs.joints} จุดเชื่อม · แนวเชื่อมรวม ≈ ${fmt(cs.weldM,0)} ม. · ≈ ${cs.rods} เส้น</td></tr>
+    <tr><td>ใบตัดเหล็ก 4 นิ้ว</td><td><b>${cs.discs} ใบ</b></td><td>≈ ${cs.cuts} รอยตัด (เหล็กใหญ่คิดสึกมากกว่า)</td></tr></tbody>`;
 
   const n=[];
   n.push(`ความสูงจุดสูงสุด ${fmt(R.dims.top)} ม.`+(R.dims.arc?` · หลังคาโค้งยาว ${fmt(R.dims.arc)} ม.`:''));
@@ -822,6 +855,7 @@ $('copyBtn').onclick=async()=>{
   let txt=`StarTechSteel – สรุปโครงหลังคา\n${s.cat.name}${s.cat.subs.length>1?' › '+s.sub.name:''}\nขนาด ${fmt(p.W)} × ${fmt(p.L)} ม. สูง ${fmt(p.H)} ม. ลาด ${fmt(p.slope,0)}° ชายคา ${fmt(p.ovh)} ม.\nพื้นที่หลังคา ${fmt(s.roofArea,1)} ตร.ม.\n`;
   s.items.forEach(it=>txt+=`- ${it.name} ${it.size.short}: ${it.bars} เส้น × ${money(it.size.sell)} = ${money(it.price)} ฿${COST?` (ทุน ${money(it.cost)})`:''}\n`);
   if(s.conc) txt+=`- เสาคอนกรีต: ${s.concCount} ต้น${s.concPrice?' = '+money(s.concCount*s.concPrice)+' ฿':''}\n`;
+  txt+=`- ลวดเชื่อม 2.3 มม.: ${window._cons.packs} ห่อ · ใบตัดเหล็ก 4": ${window._cons.discs} ใบ (ประมาณการ)\n`;
   txt+=`รวมเหล็ก ${s.totBars} เส้น ${fmt(s.totKg,1)} กก.\nราคาขายวัสดุโครง ${money(s.grand)} ฿`+(COST?`\nต้นทุนเหล็ก ${money(s.steelCost)} ฿ · กำไร ${money(s.steelSell-s.steelCost)} ฿`:'');
   try{ await navigator.clipboard.writeText(txt); $('copied').textContent='คัดลอกแล้ว'; } catch(e){ $('copied').textContent='คัดลอกไม่ได้ในหน้านี้'; }
   setTimeout(()=>$('copied').textContent='',2000);
@@ -1193,7 +1227,7 @@ function jobSummary(){
   return { roof:`${s.cat.name}${s.cat.subs.length>1?' › '+s.sub.name:''}`, width:s.p.W, length:s.p.L, height:s.p.H, slope:s.p.slope, overhang:s.p.ovh,
     column: s.sub.noCol?'ไม่มีเสา':(state.col==='steel'?'เสาเหล็ก '+S(state.colSize).short:'เสาคอนกรีต'),
     roofArea:+s.roofArea.toFixed(1), items:s.items.map(i=>({name:i.name,size:i.size.short,bars:i.bars,unitPrice:i.size.sell,amount:i.price})),
-    concreteColumns:s.conc?s.concCount:0, totalBars:s.totBars, totalKg:+s.totKg.toFixed(1), sellTotal:s.grand };
+    concreteColumns:s.conc?s.concCount:0, weldingRodPacks:window._cons?window._cons.packs:null, cuttingDiscs:window._cons?window._cons.discs:null, totalBars:s.totBars, totalKg:+s.totKg.toFixed(1), sellTotal:s.grand };
 }
 function msgText(pl){
   const c=pl.customer, j=pl.job, l=pl.location;
@@ -1202,6 +1236,7 @@ function msgText(pl){
   if(j){ t+=`\nงาน: ${j.roof} ${fmt(j.width)}×${fmt(j.length)} ม. สูง ${fmt(j.height)} ม. ลาด ${j.slope}° · ${j.column}\n`;
     j.items.forEach(i=>t+=`- ${i.name} ${i.size}: ${i.bars} เส้น = ${money(i.amount)} ฿\n`);
     if(j.concreteColumns) t+=`- เสาคอนกรีต ${j.concreteColumns} ต้น\n`;
+    if(j.weldingRodPacks) t+=`- ลวดเชื่อม 2.3 มม. ${j.weldingRodPacks} ห่อ · ใบตัด 4" ${j.cuttingDiscs} ใบ (ประมาณการ)\n`;
     t+=`รวมเหล็ก ${j.totalBars} เส้น · ราคาขายวัสดุโครง ${money(j.sellTotal)} ฿ · พื้นที่หลังคา ${j.roofArea} ตร.ม.`; }
   return t;
 }
