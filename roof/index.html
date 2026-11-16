@@ -822,9 +822,10 @@ const PROFILE_ADD={spanish:15, a_bend:7, a_curve:10};   // ลอนสเปน
 const CAP_LESS=5;                                       // ครอบ 457 ลด 5 บ./ม.
 const PU_PRICE={1:{foil:115,wood:125},2:{foil:260,wood:280}}, PE_PRICE=50;
 const PU_PATS=[['orange','ฟอยล์เปลือกส้ม'],['white','ฟอยล์ขาว'],['black','ฟอยล์ดำ'],['wood_l','ฟอยล์ลายไม้อ่อน'],['wood_d','ฟอยล์ลายไม้เข้ม']];
-const SCREW={long50:{n:'สกรูยาว 48/50 มม.',p:2.5,pc:3},long75:{n:'สกรูยาว 60–75 มม. (ยึด PU 1 นิ้ว)',p:5,pc:7},long100:{n:'สกรูยาว 100 มม. (ยึด PU 2 นิ้ว)',p:null,pc:null},short:{n:'สกรูสั้น 16/20 มม.',p:1.5,pc:2}};
+const SCREW={long50:{n:'สกรูยาว 48/50 มม.',p:2.5,pc:3},long75:{n:'สกรูยาว 60–75 มม. (ยึด PU 1 นิ้ว)',p:5,pc:7},long100:{n:'สกรูยาว 100 มม. (ยึด PU 2 นิ้ว)',p:8.5,pc:9},short:{n:'สกรูสั้น 16/20 มม.',p:1.5,pc:2}};
 const ROD_PRICE=160;                                    // ลวดเชื่อม 2.6 บาท/กล่อง (2 กก.)
 const DISC_PRICE=100;                                   // ใบตัด 14 นิ้ว บาท/ใบ
+const INSTALL={std:60, premium:70}; // บาท/ม. ความยาวแผ่น: ลอนธรรมดา 60 · ลอนสเปน หรือ ติดพียูโฟม/แซนด์วิช 70
 const DEF_WIDTH={std:0.76, spanish:0.74, snap:null};
 const finishOf=()=>state.sheet.color==='zinc'?'zinc':'color';
 const INS_LABEL=()=>{ const st=state.sheet; return st.ins==='pe'?'PE 5 มม.':st.ins==='pu'?`PU ${st.puT===1?'25':'50'} มม. ${PU_PATS.find(x=>x[0]===st.puPat)[1]}`:st.ins==='sand'?`หลังคาแซนด์วิช PU ${st.puT===1?'25':'50'} มม. ท้องเหล็ก`:''; };
@@ -901,7 +902,8 @@ function sheetCalc(R,parts){
   L(`${sc.n}${colored?' หัวสี':''}`, `${T.scr} ตัว/ม. × ความยาวแผ่น${scP==null?' · <span style="color:#8a5a00">สกรู 100 มม. ยังไม่มีใน price list</span>':''}`, screws,'ตัว',scP, screws!=null&&scP!=null?screws*scP:null);
   if(ridge>0) L(`สกรูสั้น 16/20 มม.${colored?' หัวสี':''} (แผ่นครอบ)`, `${CAP_SCREW} ตัว/ม. × ครอบ ${fmt(ridge,1)} ม.`, capScrews,'ตัว',shP, capScrews*shP);
   if(sumCat('valley')>0) L('รางน้ำท้องร่อง', 'ราคาตามขนาดราง (สอบถามฝ่ายขาย)', sumCat('valley'),'ม.',null,null);
-  if(st.install) L('ค่าแรงติดตั้งพร้อมอุปกรณ์','ราคายังไม่มีใน price list', area,'ตร.ม.',null,null);
+  if(st.install){ const prem=st.type==='spanish'||st.ins==='pu'||st.ins==='sand', ip=prem?INSTALL.premium:INSTALL.std;
+    L('ค่าแรงติดตั้งพร้อมอุปกรณ์', BRANCH?`${prem?'ลอนสเปน / ติดพียูโฟม':'ลอนธรรมดา'} ${ip} บ./ม. × ความยาวแผ่น`:'คิดตามความยาวแผ่นหลังคา', w?meters:null,'ม.',ip, w?meters*ip:null); }
   const total=lines.reduce((a,b)=>a+(b.amt||0),0), missing=lines.some(l=>l.amt==null);
   return {name:T.n, area, sheets:w?sheets:null, meters:w?meters:null, faces, ridge, valley:sumCat('valley'), eave,
     screws, scrRate:T.scr, scrN:sc.n, capScrews, lines, total, missing, pm, thkLab};
