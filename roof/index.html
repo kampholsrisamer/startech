@@ -1276,7 +1276,7 @@ function draw(v,R,parts,sz,opt){
       v.labels.push({pos:facePts({...f,poly:[[u,vv]]})[0],txt:`จันทันห่าง ${fmt(i.act)} ม.`,cls:'dim',f:'rafSp'}); }
     if(sp.pSp && sp.pSp.face){ const i=sp.pSp, f=i.face, k=Math.floor(i.n*0.6), vv=(k+0.5)*i.vmax/i.n, u=i.umax*0.72;
       v.labels.push({pos:facePts({...f,poly:[[u,vv]]})[0],txt:`แปห่าง ${fmt(i.act)} ม.`,cls:'dim',f:'pSp'}); }
-    if(mode==='frame'){
+    if(mode==='frame' && false){ // ปิดป้ายขนาดเหล็กบนภาพ — ให้เหลือเฉพาะหมายเลข
       const conc=state.col==='concrete', sizeOf=cat=>cat==='col'?(conc?'คอนกรีต':sz.col.short):sz[cat].short;
       const dot={post:HEX.gold,mraf:HEX.raf,web:HEX.gold,bch:HEX.gold,king:HEX.gold,arm:HEX.gold,col:HEX.col,raf:HEX.raf,beam:HEX.raf,plate:HEX.raf,dorm:HEX.raf,ridge:HEX.gold,hip:HEX.gold,brace:HEX.gold,valley:HEX.gold,knee:HEX.gold,pur:HEX.pur};
       ORDER.forEach(cat=>{ const ps=parts.filter(x=>x.cat===cat); if(!ps.length) return;
