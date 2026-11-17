@@ -939,7 +939,7 @@ const finishOf=()=>state.sheet.color==='zinc'?'zinc':'color';
 const INS_LABEL=()=>{ const st=state.sheet; return st.ins==='pe'?'PE 5 มม.':st.ins==='pu'?`PU ${st.puT===1?'25':'50'} มม. ${PU_PATS.find(x=>x[0]===st.puPat)[1]}`:st.ins==='sand'?`หลังคาแซนด์วิช PU ${st.puT===1?'25':'50'} มม. ท้องเหล็ก`:''; };
 function thkList(){ const g=SHEET_PRICE[state.sheet.grade], fin=g[finishOf()];
   // ทุกรูปลอนรีดได้ทุกความหนา: รวมความหนาทั้งหมดของเกรดนั้น ราคาตาม price list ถ้าไม่มีให้รอราคา
-  const keys=[]; [...g.zinc,...g.color].forEach(([k,,lab])=>{ if(!keys.find(x=>x[0]===k)) keys.push([k,lab]); });
+  const keys=fin.map(([k,,lab])=>[k,lab]);   // เฉพาะความหนาที่มีขายในสี/อลูซิงค์ของเกรดนั้น (BlueScope อลูซิงค์ไม่มี 0.47 AZ-70)
   keys.sort((x,y)=>parseFloat(x[0])-parseFloat(y[0])||x[0].localeCompare(y[0]));
   if(finishOf()==='color'){ const minC=Math.min(...g.color.map(x=>parseFloat(x[0])));   // เหล็กสีเริ่มที่ความหนาต่ำสุดของเกรด (เหล็กนอก 0.30)
     for(let i=keys.length-1;i>=0;i--) if(keys[i][0].endsWith('Z')||parseFloat(keys[i][0])<minC-1e-9) keys.splice(i,1); }   // Zincalume AZ-150 มีเฉพาะอลูซิงค์
