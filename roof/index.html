@@ -246,8 +246,8 @@ details summary{cursor:pointer;color:var(--navy);font-weight:600;font-size:14px}
       <div class="sub">ขนาดเสาเหล็ก</div>
       <div class="chips" id="colSizePick"></div>
     </div>
-    <div class="sub">ค่าแรงทำโครงหลังคา</div>
-    <div class="seg2" id="frameSeg"><button data-v="0">ซื้อวัสดุอย่างเดียว</button><button data-v="1">ทำโครงพร้อมติดตั้ง</button></div>
+    <div class="sub">ค่าแรงทำโครง + มุงหลังคา</div>
+    <div class="seg2" id="frameSeg"><button data-v="0">ซื้อวัสดุอย่างเดียว</button><button data-v="1">ทำโครง + มุงหลังคา</button></div>
     <div id="concBox" style="display:none">
       <label>ราคาเสาคอนกรีต (บาท/ต้น, ไม่ใส่ก็ได้)</label><input id="concPrice" type="number" placeholder="เช่น 450">
     </div>
@@ -907,7 +907,8 @@ function sheetCalc(R,parts){
   L(`${sc.n}${colored?' หัวสี':''}`, `${T.scr} ตัว/ม. × ความยาวแผ่น${scP==null?' · <span style="color:#8a5a00">สกรู 100 มม. ยังไม่มีใน price list</span>':''}`, screws,'ตัว',scP, screws!=null&&scP!=null?screws*scP:null);
   if(ridge>0) L(`สกรูสั้น 16/20 มม.${colored?' หัวสี':''} (แผ่นครอบ)`, `${CAP_SCREW} ตัว/ม. × ครอบ ${fmt(ridge,1)} ม.`, capScrews,'ตัว',shP, capScrews*shP);
   if(sumCat('valley')>0) L('รางน้ำท้องร่อง', 'ราคาตามขนาดราง (สอบถามฝ่ายขาย)', sumCat('valley'),'ม.',null,null);
-  if(st.install){ const hasPU=st.ins==='pu'||st.ins==='sand', snap=st.type==='snap', ip=snap?(hasPU?INSTALL.snapPU:INSTALL.snap):((hasPU||st.type==='spanish')?INSTALL.premium:INSTALL.std),
+  if(state.frame) { L('ค่าแรงมุงหลังคา','รวมอยู่ในค่าแรงทำโครง + มุงหลังคาแล้ว (ดูช่องค่าแรงด้านบน)', area,'ตร.ม.',null,0); lines[lines.length-1].incl=true; }
+  else if(st.install){ const hasPU=st.ins==='pu'||st.ins==='sand', snap=st.type==='snap', ip=snap?(hasPU?INSTALL.snapPU:INSTALL.snap):((hasPU||st.type==='spanish')?INSTALL.premium:INSTALL.std),
       ilab=snap?(hasPU?'Snap Lock + พียู':'Snap Lock'):(hasPU?'ติดพียูโฟม':(st.type==='spanish'?'ลอนสเปน':'ลอนธรรมดา'));
     L('ค่าแรงติดตั้งพร้อมอุปกรณ์', BRANCH?`${ilab} ${ip} บ./ม. × ความยาวแผ่น`:'คิดตามความยาวแผ่นหลังคา', w?meters:null,'ม.',ip, w?meters*ip:null); }
   const total=lines.reduce((a,b)=>a+(b.amt||0),0), missing=lines.some(l=>l.amt==null);
@@ -951,7 +952,7 @@ function calc(){
   const cs=consumables(R,parts,sz); window._cons=cs;
   const SH=sheetCalc(R,parts); window._sheet=SH;
   $('sheetTbl').innerHTML = !SH ? '' : `<thead><tr><th>แผ่นหลังคา + อุปกรณ์</th><th>จำนวน</th>${BRANCH?'<th>ราคา/หน่วย</th>':''}<th>รวม (฿)</th></tr></thead><tbody>
-    ${SH.lines.map(l=>`<tr><td><b>${l.name}</b><br><small style="color:#66718a">${l.detail}</small></td><td>${l.qty!=null?fmt(l.qty,1)+' '+l.unit:'<span style="color:#8a5a00">ใส่ความกว้างแผ่น</span>'}</td>${BRANCH?`<td>${l.up!=null?fmt(l.up)+' ฿':'–'}</td>`:''}<td>${l.amt!=null?money(l.amt):(l.qty==null?'–':'รอราคา')}</td></tr>`).join('')}
+    ${SH.lines.map(l=>`<tr><td><b>${l.name}</b><br><small style="color:#66718a">${l.detail}</small></td><td>${l.qty!=null?fmt(l.qty,1)+' '+l.unit:'<span style="color:#8a5a00">ใส่ความกว้างแผ่น</span>'}</td>${BRANCH?`<td>${l.up!=null?fmt(l.up)+' ฿':'–'}</td>`:''}<td>${l.incl?'รวมแล้ว':l.amt!=null?money(l.amt):(l.qty==null?'–':'รอราคา')}</td></tr>`).join('')}
     ${SH.eave>0?`<tr><td>ชายคา (เชิงชาย/ปิดชาย)<br><small style="color:#66718a">ความยาวขอบล่างหลังคารวม</small></td><td>${fmt(SH.eave,1)} ม.</td>${BRANCH?'<td>–</td>':''}<td>–</td></tr>`:''}
     </tbody><tfoot><tr><td colspan="${BRANCH?3:2}">รวมแผ่นหลังคา + อุปกรณ์${SH.missing?' (บางรายการรอราคา)':''}</td><td>${money(SH.total)}</td></tr></tfoot>`;
 
@@ -959,10 +960,10 @@ function calc(){
     <tr><td>ลวดเชื่อม 2.6 มม. (กล่องละ ${fmt(CONS.packKg)} กก.)</td><td><b>${cs.packs} กล่อง</b>${BRANCH?` × ${ROD_PRICE} ฿`:''}<br>= <b>${money(cs.packs*ROD_PRICE)} ฿</b></td><td>${cs.joints} จุดเชื่อม · แนวเชื่อมรวม ≈ ${fmt(cs.weldM,0)} ม. · ≈ ${cs.rods} เส้น</td></tr>
     <tr><td>ใบตัดเหล็ก 14 นิ้ว (แท่นตัด)</td><td><b>${cs.discs} ใบ</b>${BRANCH?` × ${DISC_PRICE} ฿`:''}<br>= <b>${money(cs.discs*DISC_PRICE)} ฿</b></td><td>≈ ${cs.cuts} รอยตัด (เหล็กใหญ่คิดสึกมากกว่า)</td></tr></tbody>`;
   const rodsP=cs.packs*ROD_PRICE+cs.discs*DISC_PRICE, roofT=SH?SH.total:0, frameL=state.frame?roofArea*frameRate():0, allT=grand+rodsP+roofT+frameL;
-  if(state.frame) $('consTbl').innerHTML+=`<tbody><tr><td>ค่าแรงทำโครงหลังคา</td><td><b>${money(frameL)} ฿</b></td><td>พื้นที่หลังคา ${fmt(roofArea,1)} ตร.ม.${BRANCH?` × ${frameRate()} ฿/ตร.ม.`:''}</td></tr></tbody>`;
+  if(state.frame) $('consTbl').innerHTML+=`<tbody><tr><td>ค่าแรงทำโครง + มุงหลังคา</td><td><b>${money(frameL)} ฿</b></td><td>พื้นที่หลังคา ${fmt(roofArea,1)} ตร.ม.${BRANCH?` × ${frameRate()} ฿/ตร.ม.`:''}</td></tr></tbody>`;
   window._totals={rodsP,roofT,frameL,allT,missing:!!((SH&&SH.missing)||(conc&&!concPrice))};
   $('kpis').innerHTML += (SH? kpi(money(roofT)+' ฿','แผ่นหลังคา + อุปกรณ์'+(SH.missing?' (บางรายการรอราคา)':'')) : '')
-    + (state.frame? kpi(money(frameL)+' ฿','ค่าแรงทำโครงหลังคา') : '')
+    + (state.frame? kpi(money(frameL)+' ฿','ค่าแรงทำโครง + มุงหลังคา') : '')
     + `<div class="kpi" style="border-left-color:#f2b705;background:linear-gradient(135deg,#fff8e1,#fdf0c4)"><b>${money(allT)} ฿</b><span>ราคาขายรวมทั้งหมด (รวม VAT · รวมลวดเชื่อมและใบตัด${window._totals.missing?' · บางรายการรอราคา':''})</span></div>`;
 
   const n=[];
@@ -1001,7 +1002,7 @@ $('copyBtn').onclick=async()=>{
   txt+=`- ลวดเชื่อม 2.6 มม.: ${window._cons.packs} กล่อง · ใบตัดเหล็ก 14": ${window._cons.discs} ใบ (ประมาณการ)\n`;
   if(window._sheet){ const h=window._sheet; txt+=`- แผ่นหลังคา ${h.name}${h.thkLab?' หนา '+h.thkLab:''} ${GRADES[state.sheet.grade]} สี${RC(state.sheet.color)[1]}${state.sheet.ins!=='none'?' + '+INS_LABEL():''}${state.sheet.install?' + ติดตั้งพร้อมอุปกรณ์':''}: ${fmt(h.area,1)} ตร.ม.${h.sheets?` (${h.sheets} แผ่น)`:''}${h.ridge>0?` · ครอบ ${fmt(h.ridge,1)} ม.`:''}\n`; if(h.screws!=null) txt+=`- ${h.scrN}: ${money(h.screws)} ตัว${h.capScrews?` · สกรูสั้นแผ่นครอบ: ${money(h.capScrews)} ตัว`:''}\n`; }
   const T=window._totals||{}; if(window._sheet) txt+=`รวมแผ่นหลังคา + อุปกรณ์ ${money(T.roofT)} ฿\n`;
-  txt+=`รวมเหล็ก ${s.totBars} เส้น ${fmt(s.totKg,1)} กก.\nราคาขายวัสดุโครง ${money(s.grand)} ฿\n${state.frame?`ค่าแรงทำโครงหลังคา ${money(T.frameL)} ฿\n`:''}ราคาขายรวมทั้งหมด ${money(T.allT)} ฿ (รวม VAT)`+(COST?`\nต้นทุนเหล็ก ${money(s.steelCost)} ฿ · กำไร ${money(s.steelSell-s.steelCost)} ฿`:'');
+  txt+=`รวมเหล็ก ${s.totBars} เส้น ${fmt(s.totKg,1)} กก.\nราคาขายวัสดุโครง ${money(s.grand)} ฿\n${state.frame?`ค่าแรงทำโครง + มุงหลังคา ${money(T.frameL)} ฿\n`:''}ราคาขายรวมทั้งหมด ${money(T.allT)} ฿ (รวม VAT)`+(COST?`\nต้นทุนเหล็ก ${money(s.steelCost)} ฿ · กำไร ${money(s.steelSell-s.steelCost)} ฿`:'');
   try{ await navigator.clipboard.writeText(txt); $('copied').textContent='คัดลอกแล้ว'; } catch(e){ $('copied').textContent='คัดลอกไม่ได้ในหน้านี้'; }
   setTimeout(()=>$('copied').textContent='',2000);
 };
@@ -1390,7 +1391,7 @@ function msgText(pl){
     if(j.roofSheet&&j.roofSheet.screws!=null) t+=`- ${j.roofSheet.screwType} ${j.roofSheet.screws} ตัว${j.roofSheet.capScrews?` · สกรูสั้นแผ่นครอบ ${j.roofSheet.capScrews} ตัว`:''}\n`;
     if(j.weldingRodPacks) t+=`- ลวดเชื่อม 2.6 มม. ${j.weldingRodPacks} กล่อง · ใบตัด 14" ${j.cuttingDiscs} ใบ (ประมาณการ)\n`;
     if(j.roofTotal) t+=`รวมแผ่นหลังคา + อุปกรณ์ ${money(j.roofTotal)} ฿\n`;
-    if(j.frameLabor) t+=`- ทำโครงพร้อมติดตั้ง ค่าแรง ${money(j.frameLabor)} ฿\n`;
+    if(j.frameLabor) t+=`- ทำโครง + มุงหลังคา ค่าแรง ${money(j.frameLabor)} ฿\n`;
     if(j.allTotal) t+=`ราคาขายรวมทั้งหมด ${money(j.allTotal)} ฿ (รวม VAT)\n`;
     t+=`รวมเหล็ก ${j.totalBars} เส้น · ราคาขายวัสดุโครง ${money(j.sellTotal)} ฿ · พื้นที่หลังคา ${j.roofArea} ตร.ม.`; }
   return t;
