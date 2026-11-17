@@ -1012,7 +1012,7 @@ function sheetCalc(R,parts){
   if(ridge>0) L('ครอบสัน / ครอบตะเฆ่ (ครอบ 457)', BRANCH?`ราคาแผ่น −${CAP_LESS} บ./ม.`:'สีและความหนาเดียวกับแผ่นหลังคา', ridge,'ม.',pm==null?null:pm-CAP_LESS, pm==null?null:ridge*(pm-CAP_LESS));
   L(`${sc.n}${colored?' หัวสี':''}`, `${T.scr} ตัว/ม. × ความยาวแผ่น${scP==null?' · <span style="color:#8a5a00">สกรู 100 มม. ยังไม่มีใน price list</span>':''}`, screws,'ตัว',scP, screws!=null&&scP!=null?screws*scP:null);
   if(ridge>0) L(`สกรูสั้น 16/20 มม.${colored?' หัวสี':''} (แผ่นครอบ)`, `${CAP_SCREW} ตัว/ม. × ครอบ ${fmt(ridge,1)} ม.`, capScrews,'ตัว',shP, capScrews*shP);
-  if(sumCat('valley')>0) L('รางน้ำท้องร่อง', 'ราคาตามขนาดราง (สอบถามฝ่ายขาย)', sumCat('valley')/2,'ม.',null,null);
+  if(sumCat('valley')>0){ const vl=sumCat('valley')/2; L('รางน้ำท้องร่อง', BRANCH?`ราคาเดียวกับครอบ (ราคาแผ่น −${CAP_LESS} บ./ม.)`:'สีและความหนาเดียวกับแผ่นหลังคา', vl,'ม.',pm==null?null:pm-CAP_LESS, pm==null?null:vl*(pm-CAP_LESS)); }
   if(state.frame) { L('ค่าแรงมุงหลังคา','รวมอยู่ในค่าแรงทำโครง + มุงหลังคาแล้ว (ดูช่องค่าแรงด้านบน)', area,'ตร.ม.',null,0); lines[lines.length-1].incl=true; }
   else if(st.install){ const hasPU=st.ins==='pu'||st.ins==='sand', snap=st.type==='snap', ip=snap?(hasPU?INSTALL.snapPU:INSTALL.snap):((hasPU||st.type==='spanish')?INSTALL.premium:INSTALL.std),
       ilab=snap?(hasPU?'Snap Lock + พียู':'Snap Lock'):(hasPU?'ติดพียูโฟม':(st.type==='spanish'?'ลอนสเปน':'ลอนธรรมดา'));
@@ -1080,7 +1080,7 @@ function calc(){
   if(sub.id==='a_bend') n.push(`ส่วนโค้งใช้แผ่นหลังคาโค้งสำเร็จ: ยาวตามโค้ง ${fmt(R.dims.arc)} ม. × ยาวตามผนัง ${fmt(p.L+0.2)} ม. (โครงเหล็กตรง ปลายจันทันมีขายึดดิ่งลงทุกตัว + แปปลายล่าง 1 แนว สำหรับยึดแผ่นโค้ง)`);
   if(['b_fly','m2'].includes(sub.id)) n.push('ยังไม่รวมรางน้ำสเตนเลส/สังกะสีที่ท้องร่อง');
   n.push('ราคาตาม price list StarTechSteel รวม VAT แล้ว ไม่รวมค่าจัดส่ง');
-  n.push('ยังไม่รวม: '+(state.sheet.type==='none'?'แผ่นหลังคา, ':'ราคาแผ่นหลังคา/ฉนวน (รอ price list), ')+'ราคาครอบ, เพลทฐานเสา/พุก, ฐานราก, สกรู, ราคาลวดเชื่อม/ใบตัด, สีกันสนิม, ค่าแรง และค่าขนส่ง');
+  n.push('ยังไม่รวม: '+(state.sheet.type==='none'?'แผ่นหลังคา ครอบ และสกรู, ':'')+'เพลทฐานเสา/พุก, ฐานราก, สีกันสนิม'+(state.frame?'':', ค่าแรงทำโครง')+' และค่าขนส่ง');
   $('notes').innerHTML=n.map(x=>'• '+x).join('<br>');
 
   const m=state.view;
