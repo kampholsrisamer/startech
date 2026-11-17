@@ -921,8 +921,8 @@ const GRADES={imp:'มอก. เหล็กนอก (ไม่รับปร
 /* ===== ราคาขายแผ่นหลังคา/อุปกรณ์ (บาท/เมตร รวม VAT) จาก price list StarTechSteel 2569 ===== */
 const SHEET_PRICE={
   imp:{zinc:[['0.20',62],['0.23',67],['0.28',75],['0.30',85],['0.35',90],['0.40',125],['0.47',140]],
-       color:[['0.30',85],['0.35',90],['0.40',120],['0.47',null]], snap:[['0.30',80],['0.35',85]]},
-  th:{zinc:[['0.30',135,'0.30 Zac'],['0.35',150,'0.35 Zac'],['0.40',170,'0.40 Zac AZ-70'],['0.40Z',185,'0.40 Zincalume AZ-150'],['0.47Z',210,'0.47 Zincalume AZ-150']],
+       color:[['0.30',85],['0.35',90],['0.40',120],['0.47',145]], snap:[['0.30',80],['0.35',85]]},
+  th:{zinc:[['0.30',135,'0.30 Zac'],['0.35',150,'0.35 Zac'],['0.40',170,'0.40 Zac AZ-70'],['0.40Z',185,'0.40 Zincalume AZ-150'],['0.47Z',230,'0.47 Zincalume AZ-150']],
       color:[['0.30',145,'0.30 Zac'],['0.35',160,'0.35 Zac'],['0.40',195,'0.40 Zac'],['0.47',240,'0.47 Zac']], snap:[['0.30',130,'0.30 Zac'],['0.35',140,'0.35 Zac']]}};
 const PROFILE_ADD={spanish:15, a_bend:7, a_curve:10};   // ลอนสเปน +15, กันสาด/โค้งปลาย +7, โค้งโดม +10
 const CAP_LESS=5;                                       // ครอบ 457 ลด 5 บ./ม.
@@ -941,7 +941,8 @@ function thkList(){ const g=SHEET_PRICE[state.sheet.grade], fin=g[finishOf()];
   // ทุกรูปลอนรีดได้ทุกความหนา: รวมความหนาทั้งหมดของเกรดนั้น ราคาตาม price list ถ้าไม่มีให้รอราคา
   const keys=[]; [...g.zinc,...g.color].forEach(([k,,lab])=>{ if(!keys.find(x=>x[0]===k)) keys.push([k,lab]); });
   keys.sort((x,y)=>parseFloat(x[0])-parseFloat(y[0])||x[0].localeCompare(y[0]));
-  if(finishOf()==='color') for(let i=keys.length-1;i>=0;i--) if(keys[i][0].endsWith('Z')) keys.splice(i,1);   // Zincalume AZ-150 มีเฉพาะอลูซิงค์
+  if(finishOf()==='color'){ const minC=Math.min(...g.color.map(x=>parseFloat(x[0])));   // เหล็กสีเริ่มที่ความหนาต่ำสุดของเกรด (เหล็กนอก 0.30)
+    for(let i=keys.length-1;i>=0;i--) if(keys[i][0].endsWith('Z')||parseFloat(keys[i][0])<minC-1e-9) keys.splice(i,1); }   // Zincalume AZ-150 มีเฉพาะอลูซิงค์
   // Snap Lock ความหนาที่ไม่มีราคา: เทียบจากลอนมาตรฐานด้วยสัดส่วนราคา Snap/มาตรฐานของเกรดนั้น (ปัดเป็นทวีคูณ 5)
   const ratios=g.snap.map(([k,pr])=>{ const c=g.color.find(x=>x[0]===k); return c&&c[1]?pr/c[1]:null; }).filter(Boolean), ratio=ratios.reduce((a,b)=>a+b,0)/ratios.length;
   return keys.map(([k,lab])=>{ const f=fin.find(x=>x[0]===k); let pr=f?f[1]:null, est=false;
