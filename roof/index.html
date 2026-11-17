@@ -957,14 +957,14 @@ function calc(){
     </tbody><tfoot><tr><td colspan="${BRANCH?3:2}">รวมแผ่นหลังคา + อุปกรณ์${SH.missing?' (บางรายการรอราคา)':''}</td><td>${money(SH.total)}</td></tr></tfoot>`;
 
   $('consTbl').innerHTML=`<thead><tr><th>วัสดุสิ้นเปลือง (ประมาณการ)</th><th>จำนวน / ราคา</th><th>คิดจาก</th></tr></thead><tbody>
-    <tr><td>ลวดเชื่อม 2.6 มม. (กล่องละ ${fmt(CONS.packKg)} กก.)</td><td><b>${cs.packs} กล่อง</b>${BRANCH?` × ${ROD_PRICE} ฿`:''}<br>= <b>${money(cs.packs*ROD_PRICE)} ฿</b></td><td>${cs.joints} จุดเชื่อม · แนวเชื่อมรวม ≈ ${fmt(cs.weldM,0)} ม. · ≈ ${cs.rods} เส้น</td></tr>
-    <tr><td>ใบตัดเหล็ก 14 นิ้ว (แท่นตัด)</td><td><b>${cs.discs} ใบ</b>${BRANCH?` × ${DISC_PRICE} ฿`:''}<br>= <b>${money(cs.discs*DISC_PRICE)} ฿</b></td><td>≈ ${cs.cuts} รอยตัด (เหล็กใหญ่คิดสึกมากกว่า)</td></tr></tbody>`;
-  const rodsP=cs.packs*ROD_PRICE+cs.discs*DISC_PRICE, roofT=SH?SH.total:0, frameL=state.frame?roofArea*frameRate():0, allT=grand+rodsP+roofT+frameL;
-  if(state.frame) $('consTbl').innerHTML+=`<tbody><tr><td>ค่าแรงทำโครง + มุงหลังคา</td><td><b>${money(frameL)} ฿</b></td><td>พื้นที่หลังคา ${fmt(roofArea,1)} ตร.ม.${BRANCH?` × ${frameRate()} ฿/ตร.ม.`:''}</td></tr></tbody>`;
+    <tr><td>ลวดเชื่อม 2.6 มม. (กล่องละ ${fmt(CONS.packKg)} กก.)</td><td><b>${cs.packs} กล่อง</b>${BRANCH?` × ${ROD_PRICE} ฿`:''}<br>= <b>${state.frame?'รวมในค่าแรงแล้ว':money(cs.packs*ROD_PRICE)+' ฿'}</b></td><td>${cs.joints} จุดเชื่อม · แนวเชื่อมรวม ≈ ${fmt(cs.weldM,0)} ม. · ≈ ${cs.rods} เส้น</td></tr>
+    <tr><td>ใบตัดเหล็ก 14 นิ้ว (แท่นตัด)</td><td><b>${cs.discs} ใบ</b>${BRANCH?` × ${DISC_PRICE} ฿`:''}<br>= <b>${state.frame?'รวมในค่าแรงแล้ว':money(cs.discs*DISC_PRICE)+' ฿'}</b></td><td>≈ ${cs.cuts} รอยตัด (เหล็กใหญ่คิดสึกมากกว่า)</td></tr></tbody>`;
+  const rodsP=state.frame?0:cs.packs*ROD_PRICE+cs.discs*DISC_PRICE, roofT=SH?SH.total:0, frameL=state.frame?roofArea*frameRate():0, allT=grand+rodsP+roofT+frameL;
+  if(state.frame) $('consTbl').innerHTML+=`<tbody><tr><td>ค่าแรงทำโครง + มุงหลังคา</td><td><b>${money(frameL)} ฿</b></td><td>พื้นที่หลังคา ${fmt(roofArea,1)} ตร.ม.${BRANCH?` × ${frameRate()} ฿/ตร.ม.`:''} · รวมลวดเชื่อม ใบตัด และค่ามุงหลังคาแล้ว</td></tr></tbody>`;
   window._totals={rodsP,roofT,frameL,allT,missing:!!((SH&&SH.missing)||(conc&&!concPrice))};
   $('kpis').innerHTML += (SH? kpi(money(roofT)+' ฿','แผ่นหลังคา + อุปกรณ์'+(SH.missing?' (บางรายการรอราคา)':'')) : '')
     + (state.frame? kpi(money(frameL)+' ฿','ค่าแรงทำโครง + มุงหลังคา') : '')
-    + `<div class="kpi" style="border-left-color:#f2b705;background:linear-gradient(135deg,#fff8e1,#fdf0c4)"><b>${money(allT)} ฿</b><span>ราคาขายรวมทั้งหมด (รวม VAT · รวมลวดเชื่อมและใบตัด${window._totals.missing?' · บางรายการรอราคา':''})</span></div>`;
+    + `<div class="kpi" style="border-left-color:#f2b705;background:linear-gradient(135deg,#fff8e1,#fdf0c4)"><b>${money(allT)} ฿</b><span>ราคาขายรวมทั้งหมด (รวม VAT · รวมลวดเชื่อมและใบตัด${state.frame?' ในค่าแรง':''}${window._totals.missing?' · บางรายการรอราคา':''})</span></div>`;
 
   const n=[];
   n.push(`ความสูงจุดสูงสุด ${fmt(R.dims.top)} ม.`+(R.dims.arc?` · หลังคาโค้งยาว ${fmt(R.dims.arc)} ม.`:''));
@@ -999,7 +999,7 @@ $('copyBtn').onclick=async()=>{
   let txt=`StarTechSteel – สรุปโครงหลังคา\n${s.cat.name}${s.cat.subs.length>1?' › '+s.sub.name:''}\nขนาด ${fmt(p.W)} × ${fmt(p.L)} ม. สูง ${fmt(p.H)} ม. ลาด ${fmt(p.slope,0)}° ชายคา ${fmt(p.ovh)} ม.\nพื้นที่หลังคา ${fmt(s.roofArea,1)} ตร.ม.\n`;
   s.items.forEach(it=>txt+=`- ${it.name} ${it.size.short}: ${it.bars} เส้น${BRANCH?` × ${money(it.size.sell)}`:''} = ${money(it.price)} ฿${COST?` (ทุน ${money(it.cost)})`:''}\n`);
   if(s.conc) txt+=`- เสาคอนกรีต: ${s.concCount} ต้น${s.concPrice?' = '+money(s.concCount*s.concPrice)+' ฿':''}\n`;
-  txt+=`- ลวดเชื่อม 2.6 มม.: ${window._cons.packs} กล่อง · ใบตัดเหล็ก 14": ${window._cons.discs} ใบ (ประมาณการ)\n`;
+  txt+=`- ลวดเชื่อม 2.6 มม.: ${window._cons.packs} กล่อง · ใบตัดเหล็ก 14": ${window._cons.discs} ใบ (ประมาณการ${state.frame?' · รวมในค่าแรงแล้ว':''})\n`;
   if(window._sheet){ const h=window._sheet; txt+=`- แผ่นหลังคา ${h.name}${h.thkLab?' หนา '+h.thkLab:''} ${GRADES[state.sheet.grade]} สี${RC(state.sheet.color)[1]}${state.sheet.ins!=='none'?' + '+INS_LABEL():''}${state.sheet.install?' + ติดตั้งพร้อมอุปกรณ์':''}: ${fmt(h.area,1)} ตร.ม.${h.sheets?` (${h.sheets} แผ่น)`:''}${h.ridge>0?` · ครอบ ${fmt(h.ridge,1)} ม.`:''}\n`; if(h.screws!=null) txt+=`- ${h.scrN}: ${money(h.screws)} ตัว${h.capScrews?` · สกรูสั้นแผ่นครอบ: ${money(h.capScrews)} ตัว`:''}\n`; }
   const T=window._totals||{}; if(window._sheet) txt+=`รวมแผ่นหลังคา + อุปกรณ์ ${money(T.roofT)} ฿\n`;
   txt+=`รวมเหล็ก ${s.totBars} เส้น ${fmt(s.totKg,1)} กก.\nราคาขายวัสดุโครง ${money(s.grand)} ฿\n${state.frame?`ค่าแรงทำโครง + มุงหลังคา ${money(T.frameL)} ฿\n`:''}ราคาขายรวมทั้งหมด ${money(T.allT)} ฿ (รวม VAT)`+(COST?`\nต้นทุนเหล็ก ${money(s.steelCost)} ฿ · กำไร ${money(s.steelSell-s.steelCost)} ฿`:'');
