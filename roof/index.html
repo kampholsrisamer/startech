@@ -711,7 +711,11 @@ function build(id, p){
 function expand(R,p){
   const parts=[];
   const push=(cat,pts,len)=>{ if(len>0.2) parts.push({cat,pts,len}); };
-  R.mem.forEach(m=>push(m.cat,m.pts,m.pts[0].distanceTo(m.pts[1])));
+  R.mem.forEach(m=>{ const len=m.pts[0].distanceTo(m.pts[1]);
+    if(m.cat==='valley'){ // ท้องร่อง: เหล็กคู่ รางน้ำวางระหว่างกลาง (ห่างกัน 30 ซม.)
+      const d=m.pts[1].clone().sub(m.pts[0]), q=V(-d.z,0,d.x).normalize().multiplyScalar(0.15);
+      [1,-1].forEach(k=>push('valley',m.pts.map(v=>v.clone().addScaledVector(q,k)),len)); }
+    else push(m.cat,m.pts,len); });
   let roofArea=0; R.cross=0;
   // โครงถัก: จันทันหลักวางตรงแนวเสาทุกแนว (frames) ช่วงระหว่างแบ่งจันทันชุดกลางไม่เกินระยะที่ตั้ง
   const frames=(R.truss||R.alignRaf)?(R.frames||(R._grid&&R._grid.xs)||[]):[];
@@ -871,7 +875,7 @@ $('consSet').innerHTML=CONSF.map(([k,l,st])=>`<div><label>${l}</label><input typ
 document.querySelectorAll('[data-cons]').forEach(i=>i.addEventListener('input',()=>{ const v=parseFloat(i.value); if(v>0||(i.dataset.cons==='waste'&&v>=0)){ CONS[i.dataset.cons]=v; calc(); } }));
 $('viewToggle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ $('viewToggle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); state.view=b.dataset.v; calc(); });
 
-const CATNAME={post:'เหล็กตั้งถัก (คาน-จันทัน)',mraf:'จันทันหลัก (โครงถัก)',web:'เหล็กถัก (ค้ำทแยงโครงถัก)',bch:'ขื่อล่างคานถัก',king:'ดั้งจั่ว',arm:'ขายึดดิ่งปลายจันทัน',pur:'แป',raf:'จันทัน',ridge:'อกไก่',hip:'ตะเฆ่สัน',valley:'ท้องร่อง (รางน้ำ)',knee:'คานหักมุม',dorm:'โครงหน้าต่างหลังคา',beam:'คานหัวเสา',plate:'เหล็กยึดผนัง',brace:'ค้ำยัน',col:'เสาเหล็ก'};
+const CATNAME={post:'เหล็กตั้งถัก (คาน-จันทัน)',mraf:'จันทันหลัก (โครงถัก)',web:'เหล็กถัก (ค้ำทแยงโครงถัก)',bch:'ขื่อล่างคานถัก',king:'ดั้งจั่ว',arm:'ขายึดดิ่งปลายจันทัน',pur:'แป',raf:'จันทัน',ridge:'อกไก่',hip:'ตะเฆ่สัน',valley:'ท้องร่อง (เหล็กคู่ รับรางน้ำ)',knee:'คานหักมุม',dorm:'โครงหน้าต่างหลังคา',beam:'คานหัวเสา',plate:'เหล็กยึดผนัง',brace:'ค้ำยัน',col:'เสาเหล็ก'};
 const ORDER=['pur','mraf','raf','post','arm','ridge','king','web','bch','hip','valley','knee','dorm','brace','beam','plate','col'];
 const RAFCATS=['arm','raf','dorm','brace','post'];
 const MAINCATS=['mraf','web','bch','king','ridge','hip','valley','knee']; // โครงถักหลัก ใช้ขนาดเดียวกัน
@@ -980,13 +984,13 @@ function sheetCalc(R,parts){
   if(ridge>0) L('ครอบสัน / ครอบตะเฆ่ (ครอบ 457)', BRANCH?`ราคาแผ่น −${CAP_LESS} บ./ม.`:'สีและความหนาเดียวกับแผ่นหลังคา', ridge,'ม.',pm==null?null:pm-CAP_LESS, pm==null?null:ridge*(pm-CAP_LESS));
   L(`${sc.n}${colored?' หัวสี':''}`, `${T.scr} ตัว/ม. × ความยาวแผ่น${scP==null?' · <span style="color:#8a5a00">สกรู 100 มม. ยังไม่มีใน price list</span>':''}`, screws,'ตัว',scP, screws!=null&&scP!=null?screws*scP:null);
   if(ridge>0) L(`สกรูสั้น 16/20 มม.${colored?' หัวสี':''} (แผ่นครอบ)`, `${CAP_SCREW} ตัว/ม. × ครอบ ${fmt(ridge,1)} ม.`, capScrews,'ตัว',shP, capScrews*shP);
-  if(sumCat('valley')>0) L('รางน้ำท้องร่อง', 'ราคาตามขนาดราง (สอบถามฝ่ายขาย)', sumCat('valley'),'ม.',null,null);
+  if(sumCat('valley')>0) L('รางน้ำท้องร่อง', 'ราคาตามขนาดราง (สอบถามฝ่ายขาย)', sumCat('valley')/2,'ม.',null,null);
   if(state.frame) { L('ค่าแรงมุงหลังคา','รวมอยู่ในค่าแรงทำโครง + มุงหลังคาแล้ว (ดูช่องค่าแรงด้านบน)', area,'ตร.ม.',null,0); lines[lines.length-1].incl=true; }
   else if(st.install){ const hasPU=st.ins==='pu'||st.ins==='sand', snap=st.type==='snap', ip=snap?(hasPU?INSTALL.snapPU:INSTALL.snap):((hasPU||st.type==='spanish')?INSTALL.premium:INSTALL.std),
       ilab=snap?(hasPU?'Snap Lock + พียู':'Snap Lock'):(hasPU?'ติดพียูโฟม':(st.type==='spanish'?'ลอนสเปน':'ลอนธรรมดา'));
     L('ค่าแรงติดตั้งพร้อมอุปกรณ์', BRANCH?`${ilab} ${ip} บ./ม. × ความยาวแผ่น`:'คิดตามความยาวแผ่นหลังคา', w?meters:null,'ม.',ip, w?meters*ip:null); }
   const total=lines.reduce((a,b)=>a+(b.amt||0),0), missing=lines.some(l=>l.amt==null);
-  return {name:T.n, area, sheets:w?sheets:null, meters:w?meters:null, faces, ridge, valley:sumCat('valley'), eave,
+  return {name:T.n, area, sheets:w?sheets:null, meters:w?meters:null, faces, ridge, valley:sumCat('valley')/2, eave,
     screws, scrRate:T.scr, scrN:sc.n, capScrews, lines, total, missing, pm, thkLab};
 }
 const area_=a=>area(a);
