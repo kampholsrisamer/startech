@@ -385,7 +385,7 @@ const STEEL = [ // ราคาจาก price list StarTechSteel (ราคา�
   {id:'mon_07',   name:'แปโมเนีย 0.70 มม.',            short:'แปโมเนีย 0.7',   kg:3.22,  sell:130, w:0.03,   h:0.05},
 ];
 const CONS={weldPerRod:12, rodsPerPack:125, packKg:2, cutsPerDisc:150, waste:10}; // อัตราลวดเชื่อม/ใบตัด
-let COST=null, BRANCH=false; const COST_ENC={"salt": "frqlXYxEqicxLbWaV0+49w==", "iv": "/+slSeTEj8YeqJ7+", "ct": "CeVSqV9RBriW57mN6hkM6Z6U8PbAgCELqgMIbYkyunl6vlfeVGGpuDLKrosj1mXfoDqCVb8rNbtoxjRL+w8BuUlbEqEDy+zxx4fko5HmNSMNxZO8vg5OnwnjA7H4S2IEK6ExOm3AEEYdsBoqwyraSK9AR5bc+MIKsi9DNeLZ37NM5n8euWOSHQvPJlIwytGp4MFcBtgVHGZcauWwXENDIZinTlwBbVXSP4vW33e3q9RdKmOo5xxbWwjOyMVHlyPOyQ47YwASpEQDj6eqigS/dGJELOs=", "it": 250000};
+let COST=null, BRANCH=false; const COST_ENC={"salt": "0VZ4LLZsYPMPqmSGcuPU/A==", "iv": "sHxw5sti6ZqAHOVh", "ct": "gfGGYJtcweUm1xvIgU+PDwZhVr5Z5SA17D+Sra552EFQIWCn/xeAw7DU74yh0A8EbwKD1FFRYngRI7a/rVwzq+tFAKswuPCy7rEexh380zTJ2aXoNDK1mw0vETsmDohHbC9JGCgmFEIcpZdZ3fzcxFOaj79GNDF8I+aw10yqS0XftQFgkRQtbtQeEVrPk1tTXaMSAm2L/JjDBjWOdqPdnqWOrzk9A85E0NSswgWWq9aOxaa8f7kXv4eSO44HjVjjFjg0m2PjDbVNr8h75IGh0eJZxWd0h9/Jr3mqUuLk9vL4epyg+VZMeHGGE+Rn/8u8zTCVAenqk+JMB+wisD7tkG5acZUI2/N3w6r7r0JzVb3HqRVVUz6+lkI+g7g=", "it": 250000};
 
 const S = id => STEEL.find(s=>s.id===id);
 const COMMON = {colSp:3, rafSp:1.5, pSp:1.0, ovh:0.5};
@@ -931,7 +931,7 @@ const PU_PATS=[['orange','ฟอยล์เปลือกส้ม'],['white',
 const SCREW={long50:{n:'สกรูยาว 48/50 มม.',p:2.5,pc:3},long75:{n:'สกรูยาว 60–75 มม. (ยึด PU 1 นิ้ว)',p:5,pc:7},long100:{n:'สกรูยาว 100 มม. (ยึด PU 2 นิ้ว)',p:8.5,pc:9},short:{n:'สกรูสั้น 16/20 มม.',p:1.5,pc:2}};
 const ROD_PRICE=160;                                    // ลวดเชื่อม 2.6 บาท/กล่อง (2 กก.)
 const DISC_PRICE=100;                                   // ใบตัด 14 นิ้ว บาท/ใบ
-const FRAME_LABOR={hip:400, dutch:400, mansard:400, other:250}; // บาท/ตร.ม. พื้นที่หลังคา ค่าแรงทำโครง: ปั้นหยา มนิลา สองชั้น 400 · ทรงอื่น 250
+const FRAME_LABOR={hip:440, dutch:440, mansard:440, other:275}; // ราคาขาย บาท/ตร.ม. (ทุน 400/250 + 10%) ค่าแรงทำโครง+มุง: ปั้นหยา มนิลา สองชั้น · ทรงอื่น
 const frameRate=()=>FRAME_LABOR[state.cat]||FRAME_LABOR.other;
 const INSTALL={std:60, premium:70, snap:50, snapPU:60}; // บาท/ม. ความยาวแผ่น (รวมอุปกรณ์)
 const DEF_WIDTH={std:0.76, spanish:0.74, snap:0.30};
@@ -1066,7 +1066,7 @@ function calc(){
     <tr><td>ลวดเชื่อม 2.6 มม. (กล่องละ ${fmt(CONS.packKg)} กก.)</td><td><b>${cs.packs} กล่อง</b>${BRANCH?` × ${ROD_PRICE} ฿`:''}<br>= <b>${state.frame?'รวมในค่าแรงแล้ว':money(cs.packs*ROD_PRICE)+' ฿'}</b></td><td>${cs.joints} จุดเชื่อม · แนวเชื่อมรวม ≈ ${fmt(cs.weldM,0)} ม. · ≈ ${cs.rods} เส้น</td></tr>
     <tr><td>ใบตัดเหล็ก 14 นิ้ว (แท่นตัด)</td><td><b>${cs.discs} ใบ</b>${BRANCH?` × ${DISC_PRICE} ฿`:''}<br>= <b>${state.frame?'รวมในค่าแรงแล้ว':money(cs.discs*DISC_PRICE)+' ฿'}</b></td><td>≈ ${cs.cuts} รอยตัด (เหล็กใหญ่คิดสึกมากกว่า)</td></tr></tbody>`;
   const rodsP=state.frame?0:cs.packs*ROD_PRICE+cs.discs*DISC_PRICE, roofT=SH?SH.total:0, frameL=state.frame?roofArea*frameRate():0, allT=grand+rodsP+roofT+frameL;
-  if(state.frame) $('consTbl').innerHTML+=`<tbody><tr><td>ค่าแรงทำโครง + มุงหลังคา</td><td><b>${money(frameL)} ฿</b></td><td>พื้นที่หลังคา ${fmt(roofArea,1)} ตร.ม.${BRANCH?` × ${frameRate()} ฿/ตร.ม.`:''} · รวมลวดเชื่อม ใบตัด และค่ามุงหลังคาแล้ว</td></tr></tbody>`;
+  if(state.frame) $('consTbl').innerHTML+=`<tbody><tr><td>ค่าแรงทำโครง + มุงหลังคา</td><td><b>${money(frameL)} ฿</b></td><td>พื้นที่หลังคา ${fmt(roofArea,1)} ตร.ม.${BRANCH?` × ${frameRate()} ฿/ตร.ม.`:''} · รวมลวดเชื่อม ใบตัด และค่ามุงหลังคาแล้ว${COST&&COST.frameLabor?` · <b>ทุน ${money(roofArea*(COST.frameLabor[state.cat]||COST.frameLabor.other))} ฿ · กำไร ${money(frameL-roofArea*(COST.frameLabor[state.cat]||COST.frameLabor.other))} ฿</b>`:''}</td></tr></tbody>`;
   window._totals={rodsP,roofT,frameL,allT,missing:!!((SH&&SH.missing)||(conc&&!concPrice))};
   $('kpis').innerHTML += (SH? kpi(money(roofT)+' ฿','แผ่นหลังคา + อุปกรณ์'+(SH.missing?' (บางรายการรอราคา)':'')) : '')
     + (state.frame? kpi(money(frameL)+' ฿','ค่าแรงทำโครง + มุงหลังคา') : '')
