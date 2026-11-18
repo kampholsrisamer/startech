@@ -385,7 +385,7 @@ const STEEL = [ // ราคาจาก price list StarTechSteel (ราคา�
   {id:'mon_07',   name:'แปโมเนีย 0.70 มม.',            short:'แปโมเนีย 0.7',   kg:3.22,  sell:130, w:0.03,   h:0.05},
 ];
 const CONS={weldPerRod:12, rodsPerPack:125, packKg:2, cutsPerDisc:150, waste:10}; // อัตราลวดเชื่อม/ใบตัด
-let COST=null, BRANCH=false; const COST_ENC={"salt": "0VZ4LLZsYPMPqmSGcuPU/A==", "iv": "sHxw5sti6ZqAHOVh", "ct": "gfGGYJtcweUm1xvIgU+PDwZhVr5Z5SA17D+Sra552EFQIWCn/xeAw7DU74yh0A8EbwKD1FFRYngRI7a/rVwzq+tFAKswuPCy7rEexh380zTJ2aXoNDK1mw0vETsmDohHbC9JGCgmFEIcpZdZ3fzcxFOaj79GNDF8I+aw10yqS0XftQFgkRQtbtQeEVrPk1tTXaMSAm2L/JjDBjWOdqPdnqWOrzk9A85E0NSswgWWq9aOxaa8f7kXv4eSO44HjVjjFjg0m2PjDbVNr8h75IGh0eJZxWd0h9/Jr3mqUuLk9vL4epyg+VZMeHGGE+Rn/8u8zTCVAenqk+JMB+wisD7tkG5acZUI2/N3w6r7r0JzVb3HqRVVUz6+lkI+g7g=", "it": 250000};
+let COST=null, BRANCH=false; const COST_ENC={"salt": "/KxRWUeplDBFDR4JNnOx3w==", "iv": "hFoOPSRdwUH+hxsJ", "ct": "f53NoYC6sfuWQYK2p14X8x86WlVz9zp/E7TOWxgQqDbuacTN8RbJTlXbn6GnGp5VewKD/Ra9W3esWnT7aMHdnzh7wNJHNOkQboYKnLtAjcefmEkls+DSmtBeyjY17ZJYnJCUm+moFut/CpoMGo0C6elLEFLofLVq0gmxiqcQIc+CgbyL2GP0KnlzEPRsJgN+U6V88YTeJFyt+TPVaJ/8ZYB9MRamEDlF6UH89vEOP/fFWtwzSHmAwVOIHOadZNmfU+kY3EgfQBi+6PNxiIiJk2sX3fHKwqt7TuqWMZerwB072iuQznuI7Gi41c6wT+SC0E/D1KMGx9tGPm4F/A1EDMWzso94Mg5+4nJzWNTjuEFM8uIhCcwAv5a3snD2lHqkP5zhdye0v0kFb8pSt5Uxrj516I0GNhcpRJLIsNkAWO7x31NsFpx9hXiw8Lhg8vZLEjz1kECnuBa/ordVlZ41c64GYuwxSm60Muh2Qt0psIX6+mz22UsIM7udCcuAT/gRaXpFcqTU/8WRNTvtyLXoOlBnFgJMI75Sun2WycJ8s47MQV9QjfvIOfzjEyR+YAeMfJiZo4MOZY88IIsUgaY8W0F2gKxr1Lby0LvPjTjQ4/2eOUQZRlnC4HliFRgC5lc8UOBzgpZ6tDSAvw4ewZ7/udSscS87SRhR4QuVNUWSs8wOL4VwoopF+kG1Ee25xj/l8lgAYu89TN21EqWGzDIJSMgy4lmbNH6JvYWsPHuxXgBtA6ndkxyFYAdWNX9ArUNA1WM36ww+0SiaMaRx2apf5AaO2Wsvaf0bBTWoSHXTwegb6ci1cFCKU4ZafVCreyAKq6uiYUK/99SBtODiRPnlmHIsr+gJYjolqSk+JNKhpQI0EISWXflILGRLzlSRul4dT3mdjhJt7G3xs8fox+c+Qr4va08wg3mJpvDUvHZFwpBdQWutZuo72efrQH1Qh23ZxFw9qnkwOCQet0XzKy0GeD2L79NpXUYIfcRAhfGJ/D7MVj8ONjo5bhwm93i35qL4gHBxxr8V1Uj4uu6v4lVMejf1W6S9O+DfWwXN4H4VYJV6kOAXDdc+M2rOvGWvgTScmU8reYR2lXdi0sOOZPV31WzVNhnUdrF0YSQ8+vVZqWC4uKijl4eVZR5Bek5jVfF44x4=", "it": 250000};
 
 const S = id => STEEL.find(s=>s.id===id);
 const COMMON = {colSp:3, rafSp:1.5, pSp:1.0, ovh:0.5};
@@ -929,7 +929,7 @@ const CAP_LESS=5;                                       // ครอบ 457 ล�
 const PU_PRICE={1:{foil:115,wood:125},2:{foil:260,wood:280}}, PE_PRICE=50;
 const PU_PATS=[['orange','ฟอยล์เปลือกส้ม'],['white','ฟอยล์ขาว'],['black','ฟอยล์ดำ'],['wood_l','ฟอยล์ลายไม้อ่อน'],['wood_d','ฟอยล์ลายไม้เข้ม']];
 const SCREW={long50:{n:'สกรูยาว 48/50 มม.',p:2.5,pc:3},long75:{n:'สกรูยาว 60–75 มม. (ยึด PU 1 นิ้ว)',p:5,pc:7},long100:{n:'สกรูยาว 100 มม. (ยึด PU 2 นิ้ว)',p:8.5,pc:9},short:{n:'สกรูสั้น 16/20 มม.',p:1.5,pc:2}};
-const ROD_PRICE=160;                                    // ลวดเชื่อม 2.6 บาท/กล่อง (2 กก.)
+const ROD_PRICE=165;                                    // ลวดเชื่อม 2.6 บาท/กล่อง (2 กก.)
 const DISC_PRICE=100;                                   // ใบตัด 14 นิ้ว บาท/ใบ
 const FRAME_LABOR={hip:440, dutch:440, mansard:440, other:275}; // ราคาขาย บาท/ตร.ม. (ทุน 400/250 + 10%) ค่าแรงทำโครง+มุง: ปั้นหยา มนิลา สองชั้น · ทรงอื่น
 const frameRate=()=>FRAME_LABOR[state.cat]||FRAME_LABOR.other;
@@ -1000,26 +1000,31 @@ function sheetCalc(R,parts){
   const screws=w?Math.ceil(meters*T.scr):null, capScrews=Math.ceil(ridge*CAP_SCREW);
   const scrKey= st.type==='snap'?'short' : ((st.ins==='pu'||st.ins==='sand')?(st.puT===2?'long100':'long75'):'long50'), sc=SCREW[scrKey], scP=colored?sc.pc:sc.p, shP=colored?SCREW.short.pc:SCREW.short.p;
   const lines=[];
-  const L=(name,detail,qty,unit,up,amt)=>lines.push({name,detail,qty,unit,up,amt});
+  const L=(name,detail,qty,unit,up,amt,cost)=>lines.push({name,detail,qty,unit,up,amt,cost});
+  // ต้นทุน (เฉพาะโหมดสาขา): บาท/ม. แผ่นตามเกรด/สี/ความหนา · Snap Lock ใช้ราคาทุนในไฟล์ ถ้าไม่มีคิดครึ่งหนึ่งของแผ่นหน้าเต็ม (เหล็กหน้า 914 ผ่าครึ่ง)
+  const CS=COST&&COST.sheet?COST.sheet[st.grade]:null, stdC=CS?CS[finishOf()][st.t]:null;
+  const shC=!CS?null: st.type==='snap'? (finishOf()==='color'&&CS.snap[st.t]!=null?CS.snap[st.t]:(stdC!=null?stdC/2:null)) : stdC;
+  const capC=stdC!=null?stdC/2:null, mul=(q,c)=>q!=null&&c!=null?q*c:null, scC=k=>COST&&COST.screw&&COST.screw[k]?COST.screw[k][colored?1:0]:null;
   const thkLab=row[2]||row[0]+' มม.';
   L(`${T.n} ${thkLab}`, `${GRADES[st.grade]} · สี${RC(st.color)[1]}${add&&BRANCH?` · รวมบวกเพิ่มลอน +${add} บ./ม.`:''}${row[3]&&BRANCH?' · ราคาเทียบจากลอนมาตรฐาน':''}<br>${faces.map(f=>(f.n?`${f.n} แผ่น×`:'')+(f.var?`ยาวสุด ${fmt(f.len)} ม. (ตัดเฉียงตามตะเฆ่)`:`ยาว ${fmt(f.len)} ม.`)).join(' · ')} · ${fmt(area,1)} ตร.ม.`,
-    w?meters:null,'ม.',pm, w&&pm!=null?meters*pm:null);
-  if(st.ins==='pe') L('ฉนวน PE 5 มม. กาวสำเร็จ','ติดใต้แผ่นตามความยาวแผ่น', w?meters:null,'ม.',PE_PRICE, w?meters*PE_PRICE:null);
+    w?meters:null,'ม.',pm, w&&pm!=null?meters*pm:null, mul(w?meters:null,shC));
+  if(st.ins==='pe') L('ฉนวน PE 5 มม. กาวสำเร็จ','ติดใต้แผ่นตามความยาวแผ่น', w?meters:null,'ม.',PE_PRICE, w?meters*PE_PRICE:null, COST&&COST.pe?mul(w?meters:null,COST.pe):null);
   if(st.ins==='pu'||st.ins==='sand'){ const wood=st.puPat.startsWith('wood'), up=st.ins==='pu'?PU_PRICE[st.puT][wood?'wood':'foil'] : (row[1]==null?null:PU_PRICE[st.puT].foil+row[1]);
     L(st.ins==='pu'?`ฉนวน ${INS_LABEL()}`:`หลังคาแซนด์วิช: PU ${st.puT===1?'25':'50'} มม. + เหล็กปิดท้อง ${thkLab}`,
       st.ins==='pu'?'ติดใต้แผ่นตามความยาวแผ่น':(BRANCH?`PU ${money(PU_PRICE[st.puT].foil)} + เหล็กปิดท้อง ${thkLab} ${row[1]==null?'รอราคา':money(row[1])} = ${up==null?'รอราคา':money(up)+' บ./ม.'} (แผ่นหลังคาด้านบนคิดในบรรทัดแรก)`:`PU ${st.puT===1?'25':'50'} มม. + เหล็กปิดท้อง ${thkLab} (แผ่นหลังคาด้านบนอยู่ในบรรทัดแรก)`),
-      w?meters:null,'ม.',up, w&&up!=null?meters*up:null); }
-  if(ridge>0) L('ครอบสัน / ครอบตะเฆ่ (ครอบ 457)', BRANCH?`ราคาแผ่น −${CAP_LESS} บ./ม.`:'สีและความหนาเดียวกับแผ่นหลังคา', ridge,'ม.',pm==null?null:pm-CAP_LESS, pm==null?null:ridge*(pm-CAP_LESS));
-  L(`${sc.n}${colored?' หัวสี':''}`, `${T.scr} ตัว/ม. × ความยาวแผ่น${scP==null?' · <span style="color:#8a5a00">สกรู 100 มม. ยังไม่มีใน price list</span>':''}`, screws,'ตัว',scP, screws!=null&&scP!=null?screws*scP:null);
-  if(ridge>0) L(`สกรูสั้น 16/20 มม.${colored?' หัวสี':''} (แผ่นครอบ)`, `${CAP_SCREW} ตัว/ม. × ครอบ ${fmt(ridge,1)} ม.`, capScrews,'ตัว',shP, capScrews*shP);
-  if(sumCat('valley')>0){ const vl=sumCat('valley')/2; L('รางน้ำท้องร่อง', BRANCH?`ราคาเดียวกับครอบ (ราคาแผ่น −${CAP_LESS} บ./ม.)`:'สีและความหนาเดียวกับแผ่นหลังคา', vl,'ม.',pm==null?null:pm-CAP_LESS, pm==null?null:vl*(pm-CAP_LESS)); }
+      w?meters:null,'ม.',up, w&&up!=null?meters*up:null, COST&&COST.pu?mul(w?meters:null, st.ins==='pu'?COST.pu[st.puT][wood?'wood':'foil']:(stdC!=null?COST.pu[st.puT].foil+stdC:null)):null); }
+  if(ridge>0) L('ครอบสัน / ครอบตะเฆ่ (ครอบ 457)', BRANCH?`ราคาแผ่น −${CAP_LESS} บ./ม.`:'สีและความหนาเดียวกับแผ่นหลังคา', ridge,'ม.',pm==null?null:pm-CAP_LESS, pm==null?null:ridge*(pm-CAP_LESS), mul(ridge,capC));
+  L(`${sc.n}${colored?' หัวสี':''}`, `${T.scr} ตัว/ม. × ความยาวแผ่น${scP==null?' · <span style="color:#8a5a00">สกรู 100 มม. ยังไม่มีใน price list</span>':''}`, screws,'ตัว',scP, screws!=null&&scP!=null?screws*scP:null, mul(screws,scC(scrKey)));
+  if(ridge>0) L(`สกรูสั้น 16/20 มม.${colored?' หัวสี':''} (แผ่นครอบ)`, `${CAP_SCREW} ตัว/ม. × ครอบ ${fmt(ridge,1)} ม.`, capScrews,'ตัว',shP, capScrews*shP, mul(capScrews,scC('short')));
+  if(sumCat('valley')>0){ const vl=sumCat('valley')/2; L('รางน้ำท้องร่อง', BRANCH?`ราคาเดียวกับครอบ (ราคาแผ่น −${CAP_LESS} บ./ม.)`:'สีและความหนาเดียวกับแผ่นหลังคา', vl,'ม.',pm==null?null:pm-CAP_LESS, pm==null?null:vl*(pm-CAP_LESS), mul(vl,capC)); }
   if(state.frame) { L('ค่าแรงมุงหลังคา','รวมอยู่ในค่าแรงทำโครง + มุงหลังคาแล้ว (ดูช่องค่าแรงด้านบน)', area,'ตร.ม.',null,0); lines[lines.length-1].incl=true; }
   else if(st.install){ const hasPU=st.ins==='pu'||st.ins==='sand', snap=st.type==='snap', ip=snap?(hasPU?INSTALL.snapPU:INSTALL.snap):((hasPU||st.type==='spanish')?INSTALL.premium:INSTALL.std),
       ilab=snap?(hasPU?'Snap Lock + พียู':'Snap Lock'):(hasPU?'ติดพียูโฟม':(st.type==='spanish'?'ลอนสเปน':'ลอนธรรมดา'));
     L('ค่าแรงติดตั้งพร้อมอุปกรณ์', BRANCH?`${ilab} ${ip} บ./ม. × ความยาวแผ่น`:'คิดตามความยาวแผ่นหลังคา', w?meters:null,'ม.',ip, w?meters*ip:null); }
   const total=lines.reduce((a,b)=>a+(b.amt||0),0), missing=lines.some(l=>l.amt==null);
+  const costT=lines.reduce((a,b)=>a+(b.cost||0),0), costMissing=lines.some(l=>!l.incl&&l.amt&&l.cost==null);
   return {name:T.n, area, sheets:w?sheets:null, meters:w?meters:null, faces, ridge, valley:sumCat('valley')/2, eave,
-    screws, scrRate:T.scr, scrN:sc.n, capScrews, lines, total, missing, pm, thkLab};
+    screws, scrRate:T.scr, scrN:sc.n, capScrews, lines, total, missing, pm, thkLab, costT, costMissing};
 }
 const area_=a=>area(a);
 function calc(){
@@ -1057,10 +1062,10 @@ function calc(){
   $('boq').innerHTML=h;
   const cs=consumables(R,parts,sz); window._cons=cs;
   const SH=sheetCalc(R,parts); window._sheet=SH;
-  $('sheetTbl').innerHTML = !SH ? '' : `<thead><tr><th>แผ่นหลังคา + อุปกรณ์</th><th>จำนวน</th>${BRANCH?'<th>ราคา/หน่วย</th>':''}<th>รวม (฿)</th></tr></thead><tbody>
-    ${SH.lines.map(l=>`<tr><td><b>${l.name}</b><br><small style="color:#66718a">${l.detail}</small></td><td>${l.qty!=null?fmt(l.qty,1)+' '+l.unit:'<span style="color:#8a5a00">ใส่ความกว้างแผ่น</span>'}</td>${BRANCH?`<td>${l.up!=null?fmt(l.up)+' ฿':'–'}</td>`:''}<td>${l.incl?'รวมแล้ว':l.amt!=null?money(l.amt):(l.qty==null?'–':'รอราคา')}</td></tr>`).join('')}
-    ${SH.eave>0?`<tr><td>ชายคา (เชิงชาย/ปิดชาย)<br><small style="color:#66718a">ความยาวขอบล่างหลังคารวม</small></td><td>${fmt(SH.eave,1)} ม.</td>${BRANCH?'<td>–</td>':''}<td>–</td></tr>`:''}
-    </tbody><tfoot><tr><td colspan="${BRANCH?3:2}">รวมแผ่นหลังคา + อุปกรณ์${SH.missing?' (บางรายการรอราคา)':''}</td><td>${money(SH.total)}</td></tr></tfoot>`;
+  $('sheetTbl').innerHTML = !SH ? '' : `<thead><tr><th>แผ่นหลังคา + อุปกรณ์</th><th>จำนวน</th>${BRANCH?'<th>ราคา/หน่วย</th>':''}<th>รวม (฿)</th>${COST?'<th>ทุน (฿)</th><th>กำไร (฿)</th>':''}</tr></thead><tbody>
+    ${SH.lines.map(l=>`<tr><td><b>${l.name}</b><br><small style="color:#66718a">${l.detail}</small></td><td>${l.qty!=null?fmt(l.qty,1)+' '+l.unit:'<span style="color:#8a5a00">ใส่ความกว้างแผ่น</span>'}</td>${BRANCH?`<td>${l.up!=null?fmt(l.up)+' ฿':'–'}</td>`:''}<td>${l.incl?'รวมแล้ว':l.amt!=null?money(l.amt):(l.qty==null?'–':'รอราคา')}</td>${COST?`<td>${l.incl?'–':l.cost!=null?money(l.cost):'<span style="color:#8a5a00">ไม่มีทุน</span>'}</td><td>${l.cost!=null&&l.amt!=null?money(l.amt-l.cost):'–'}</td>`:''}</tr>`).join('')}
+    ${SH.eave>0?`<tr><td>ชายคา (เชิงชาย/ปิดชาย)<br><small style="color:#66718a">ความยาวขอบล่างหลังคารวม</small></td><td>${fmt(SH.eave,1)} ม.</td>${BRANCH?'<td>–</td>':''}<td>–</td>${COST?'<td></td><td></td>':''}</tr>`:''}
+    </tbody><tfoot><tr><td colspan="${BRANCH?3:2}">รวมแผ่นหลังคา + อุปกรณ์${SH.missing?' (บางรายการรอราคา)':''}</td><td>${money(SH.total)}</td>${COST?`<td>${money(SH.costT)}${SH.costMissing?'*':''}</td><td>${money(SH.total-SH.costT)}${SH.costMissing?'*':''}</td>`:''}</tr></tfoot>`;
 
   $('consTbl').innerHTML=`<thead><tr><th>วัสดุสิ้นเปลือง (ประมาณการ)</th><th>จำนวน / ราคา</th><th>คิดจาก</th></tr></thead><tbody>
     <tr><td>ลวดเชื่อม 2.6 มม. (กล่องละ ${fmt(CONS.packKg)} กก.)</td><td><b>${cs.packs} กล่อง</b>${BRANCH?` × ${ROD_PRICE} ฿`:''}<br>= <b>${state.frame?'รวมในค่าแรงแล้ว':money(cs.packs*ROD_PRICE)+' ฿'}</b></td><td>${cs.joints} จุดเชื่อม · แนวเชื่อมรวม ≈ ${fmt(cs.weldM,0)} ม. · ≈ ${cs.rods} เส้น</td></tr>
@@ -1070,6 +1075,9 @@ function calc(){
   window._totals={rodsP,roofT,frameL,allT,missing:!!((SH&&SH.missing)||(conc&&!concPrice))};
   $('kpis').innerHTML += (SH? kpi(money(roofT)+' ฿','แผ่นหลังคา + อุปกรณ์'+(SH.missing?' (บางรายการรอราคา)':'')) : '')
     + (state.frame? kpi(money(frameL)+' ฿','ค่าแรงทำโครง + มุงหลังคา') : '')
+    + (COST? (()=>{ const fl=state.frame&&COST.frameLabor?roofArea*(COST.frameLabor[state.cat]||COST.frameLabor.other):0, rc=state.frame?0:cs.packs*(COST.rod||ROD_PRICE)+cs.discs*DISC_PRICE,
+        ct=steelCost+(conc?concCount*concPrice:0)+(SH?SH.costT:0)+fl+rc, pr=allT-ct, part=SH&&SH.costMissing;
+        window._totals.costAll=ct; return kpi(money(ct)+' ฿','ต้นทุนรวมทั้งงาน'+(part?' (บางรายการไม่มีทุน)':''))+kpi(money(pr)+' ฿',`กำไรรวมทั้งงาน (${fmt(allT?100*pr/allT:0,1)}%)`); })() : '')
     + `<div class="kpi" style="border-left-color:#f2b705;background:linear-gradient(135deg,#fff8e1,#fdf0c4)"><b>${money(allT)} ฿</b><span>ราคาขายรวมทั้งหมด (รวม VAT · รวมลวดเชื่อมและใบตัด${state.frame?' ในค่าแรง':''}${window._totals.missing?' · บางรายการรอราคา':''})</span></div>`;
 
   const n=[];
