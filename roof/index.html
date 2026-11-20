@@ -746,6 +746,14 @@ function build(id, p){
 function expand(R,p){
   const parts=[];
   const push=(cat,pts,len)=>{ if(len>0.2) parts.push({cat,pts,len}); };
+  { // ค้ำอกไก่: เหล็กเฉียงจากดั้งจั่วขึ้นค้ำอกไก่ ข้างละ ≈1 ม. (ลดช่วงพาดของอกไก่)
+    const ridges=R.mem.filter(m=>m.cat==='ridge'), add=[];
+    R.mem.filter(m=>m.cat==='king').forEach(k=>{ const top=k.pts[0].y>k.pts[1].y?k.pts[0]:k.pts[1], bot=k.pts[0].y>k.pts[1].y?k.pts[1]:k.pts[0];
+      ridges.forEach(r=>{ const a=r.pts[0], b=r.pts[1], d=b.clone().sub(a), L=d.length(); if(L<0.5) return; const u=d.clone().divideScalar(L);
+        const t=top.clone().sub(a).dot(u); if(t<-0.01||t>L+0.01) return; const q=a.clone().addScaledVector(u,t); if(q.distanceTo(top)>0.06) return;
+        const drop=Math.min(1.0,(top.y-bot.y)*0.7); if(drop<0.3) return; const reach=drop;
+        [1,-1].forEach(sg=>{ const tt=t+sg*reach; if(tt<0.2||tt>L-0.2) return; add.push({cat:'rbrace',pts:[V(top.x,top.y-drop,top.z),a.clone().addScaledVector(u,tt)]}); }); }); });
+    R.mem.push(...add); }
   R.mem.forEach(m=>{ const len=m.pts[0].distanceTo(m.pts[1]);
     if(m.cat==='valley'){ // ท้องร่อง: เหล็กคู่ รางน้ำวางระหว่างกลาง (ห่างกัน 30 ซม.)
       const d=m.pts[1].clone().sub(m.pts[0]), q=V(-d.z,0,d.x).normalize().multiplyScalar(0.15);
@@ -896,7 +904,7 @@ function structCheck(R,parts,p,sz,sizeOf){
   rafterCheck('mraf',parts.filter(x=>x.cat==='mraf'),'จันทันหลัก (โครงถัก)');
   // ----- คานหัวเสา / อกไก่ / ตะเฆ่ : รับแรงจากจันทันเป็นจุด ช่วงระหว่างเสา/ดั้ง -----
   const colTops=parts.filter(x=>x.cat==='col').map(x=>x.pts[1]);
-  const vSup=parts.filter(x=>['col','king','post','web'].includes(x.cat)).map(x=>x.pts[0].y>x.pts[1].y?x.pts[0]:x.pts[1]);
+  const vSup=parts.filter(x=>['col','king','post','web','rbrace'].includes(x.cat)).map(x=>x.pts[0].y>x.pts[1].y?x.pts[0]:x.pts[1]);
   const beamCheck=(g,cats,name)=>{ let worst=null;
     parts.filter(x=>cats.includes(x.cat)&&x.pts.length===2).forEach(m=>{ const a=plan(m.pts[0]), b=plan(m.pts[1]), Lp=Math.hypot(b[0]-a[0],b[1]-a[1]); if(Lp<0.3) return;
       const ts=[]; vSup.forEach(q=>{ const t=((q.x-a[0])*(b[0]-a[0])+(q.z-a[1])*(b[1]-a[1]))/(Lp*Lp); if(t<-0.01||t>1.01) return;
@@ -920,6 +928,7 @@ function structCheck(R,parts,p,sz,sizeOf){
     add(g,{name,size:S(g),span:worst.L,ratio:worst.ratio,note:`ยาวสุด ${fmt(worst.L)} ม. · แรงอัด≈${fmt(worst.P/ST.g,0)} กก. · ความชะลูด KL/r ${fmt(worst.L*1000/worst.sp.r,0)} (≤200)`}); };
   const trussW=(R.W||p.W)/ (c||1)*bay*wA; // น้ำหนักรวมที่โครงถักหนึ่งตัวรับ (N)
   compCheck('web',['web','king'],'เหล็กถัก / ดั้งจั่ว (โครงถักหลัก)',m=>trussW/2/Math.max(0.5,Math.abs(m.pts[1].y-m.pts[0].y)/m.len));
+  compCheck('rbrace',['rbrace'],'ค้ำอกไก่',m=>wA*((R.W||p.W)/c)/2*bay/2/Math.max(0.4,Math.abs(m.pts[1].y-m.pts[0].y)/m.len));
   compCheck('post',['post'],'เหล็กตั้งถัก (เพิง)',()=>wA*rafSpMax*Math.min(6,p.W)/2);
   compCheck('brace',['brace','arm'],'ค้ำยัน / ขายึด',()=>wA*rafSpMax*p.W*0.8);
   if(parts.some(x=>x.cat==='mraf')){ const sp=secProp(S('mraf')), C=trussW/2/Math.max(0.15,sn), Lp=1.0*1000, fa=C/sp.A, F=Fa(sp,Lp), Tt=trussW/2/Math.max(0.15,Math.tan(th)), spb=secProp(S('beam')), rt=Tt/(0.6*ST.Fy*spb.A);
@@ -934,7 +943,7 @@ function structCheck(R,parts,p,sz,sizeOf){
   return out;
 }
 // กลุ่ม → ช่องเลือกขนาด
-const STRUCT_SEL={pur:'pSize',raf:'rSize',post:'rSize',brace:'rSize',mraf:'mSize',web:'mSize',ridge:'mSize',mrafAx:'mSize',beam:'bSize',bchAx:'bSize',col:'colSize'};
+const STRUCT_SEL={rbrace:'mSize',pur:'pSize',raf:'rSize',post:'rSize',brace:'rSize',mraf:'mSize',web:'mSize',ridge:'mSize',mrafAx:'mSize',beam:'bSize',bchAx:'bSize',col:'colSize'};
 
 const SEL_OF=cat=>cat==='pur'?'pSize':cat==='col'?'colSize':(cat==='beam'||cat==='plate')?'bSize':MAINCATS.includes(cat)?'mSize':'rSize';
 function renderStruct(R,parts,p,sz){
@@ -1058,10 +1067,10 @@ $('consSet').innerHTML=CONSF.map(([k,l,st])=>`<div><label>${l}</label><input typ
 document.querySelectorAll('[data-cons]').forEach(i=>i.addEventListener('input',()=>{ const v=parseFloat(i.value); if(v>0||(i.dataset.cons==='waste'&&v>=0)){ CONS[i.dataset.cons]=v; calc(); } }));
 $('viewToggle').querySelectorAll('button').forEach(b=>b.onclick=()=>{ $('viewToggle').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); state.view=b.dataset.v; calc(); });
 
-const CATNAME={post:'เหล็กตั้งถัก (คาน-จันทัน)',mraf:'จันทันหลัก (โครงถัก)',web:'เหล็กถัก (ค้ำทแยงโครงถัก)',bch:'ขื่อล่างคานถัก',king:'ดั้งจั่ว',arm:'ขายึดดิ่งปลายจันทัน',pur:'แป',raf:'จันทัน',ridge:'อกไก่',hip:'ตะเฆ่สัน',valley:'ท้องร่อง (เหล็กคู่ รับรางน้ำ)',knee:'คานหักมุม',dorm:'โครงหน้าต่างหลังคา',beam:'คานหัวเสา',plate:'เหล็กยึดผนัง',brace:'ค้ำยัน',col:'เสาเหล็ก'};
-const ORDER=['pur','mraf','raf','post','arm','ridge','king','web','bch','hip','valley','knee','dorm','brace','beam','plate','col'];
+const CATNAME={rbrace:'ค้ำอกไก่',post:'เหล็กตั้งถัก (คาน-จันทัน)',mraf:'จันทันหลัก (โครงถัก)',web:'เหล็กถัก (ค้ำทแยงโครงถัก)',bch:'ขื่อล่างคานถัก',king:'ดั้งจั่ว',arm:'ขายึดดิ่งปลายจันทัน',pur:'แป',raf:'จันทัน',ridge:'อกไก่',hip:'ตะเฆ่สัน',valley:'ท้องร่อง (เหล็กคู่ รับรางน้ำ)',knee:'คานหักมุม',dorm:'โครงหน้าต่างหลังคา',beam:'คานหัวเสา',plate:'เหล็กยึดผนัง',brace:'ค้ำยัน',col:'เสาเหล็ก'};
+const ORDER=['pur','mraf','raf','post','arm','ridge','king','rbrace','web','bch','hip','valley','knee','dorm','brace','beam','plate','col'];
 const RAFCATS=['arm','raf','dorm','brace','post'];
-const MAINCATS=['mraf','web','bch','king','ridge','hip','valley','knee']; // โครงถักหลัก ใช้ขนาดเดียวกัน
+const MAINCATS=['mraf','web','bch','king','rbrace','ridge','hip','valley','knee']; // โครงถักหลัก ใช้ขนาดเดียวกัน
 function sizes(){ const r=S($('rSize').value), b=S($('bSize').value), o={pur:S($('pSize').value), beam:b, plate:b, col:S(state.colSize)}; RAFCATS.forEach(c=>o[c]=r); const m=S($('mSize').value); MAINCATS.forEach(c=>o[c]=m); return o; }
 
 const SHEETS={
@@ -1134,12 +1143,12 @@ function consumables(R,parts,sz){
   const J=(n,cm)=>{ joints+=n; weld+=n*cm; };
   J(R.cross||0, 2*sz.pur.w*100);                                   // แป-จันทัน
   parts.forEach(x=>{ const s=sz[x.cat]; if(!s) return;
-    if(['raf','post','mraf','web','bch','ridge','hip','valley','knee','king','brace','arm','dorm'].includes(x.cat)) J(2, per(s)*0.5);   // ปลายชิ้น
+    if(['raf','post','rbrace','mraf','web','bch','ridge','hip','valley','knee','king','brace','arm','dorm'].includes(x.cat)) J(2, per(s)*0.5);   // ปลายชิ้น
     if(x.cat==='beam') J(2, per(s)*0.75);                            // คาน-หัวเสา
     if(x.cat==='col' && steel) J(1, per(s));                          // ฐานเสา
     const nSplice=Math.max(0,Math.ceil(x.len/BAR-1e-9)-1); if(nSplice && !(x.cat==='col'&&!steel)) J(nSplice, per(s)); // ต่อเหล็ก
     if(x.cat==='col' && !steel) return;
-    const rem=x.len-Math.floor(x.len/BAR+1e-9)*BAR, c=(rem>0.01?1:0)+(['raf','post','mraf','web','hip','king','brace','arm','knee'].includes(x.cat)?1:0);
+    const rem=x.len-Math.floor(x.len/BAR+1e-9)*BAR, c=(rem>0.01?1:0)+(['raf','post','rbrace','mraf','web','hip','king','brace','arm','knee'].includes(x.cat)?1:0);
     cuts+=c; cutEq+=c*per(s)/ref; });
   const w=1+CONS.waste/100, rods=Math.ceil(weld/CONS.weldPerRod*w), packs=Math.max(1,Math.ceil(rods/CONS.rodsPerPack)), discs=Math.max(1,Math.ceil(cutEq*w/CONS.cutsPerDisc));
   return {joints:Math.round(joints),weldM:weld/100,rods,packs,cuts,discs};
@@ -1377,7 +1386,7 @@ function drawLine(g,R,parts,sz,opt,bb,big){
   // โครงที่มองเห็น: เสา คาน ค้ำยัน อกไก่/ราง
   parts.forEach(x=>{ if(['pur','raf'].includes(x.cat)) return;
     if(x.cat==='col'){ if(conc){ box(g,x.pts[0],x.pts[1],0.17,0.17,MAT.L_conc); } else stroke(g,x.pts[0],x.pts[1],r*1.7,ink); return; }
-    if(['beam','plate','brace','dorm','arm','king','web','bch','post'].includes(x.cat)) loop(g,x.pts,r*(['web','bch','post'].includes(x.cat)?0.8:1.1),ink,false); });
+    if(['beam','plate','brace','dorm','arm','king','web','bch','post','rbrace'].includes(x.cat)) loop(g,x.pts,r*(['web','bch','post','rbrace'].includes(x.cat)?0.8:1.1),ink,false); });
 }
 
 let _roofCol=null;
@@ -1405,7 +1414,7 @@ function draw(v,R,parts,sz,opt){
       let w,h,mat;
       if(x.cat==='col'){ if(conc){w=h=0.17;mat=MAT.conc;} else {w=sz.col.w;h=sz.col.h;mat=real?MAT.r_steel:MAT.f_col;} }
       else if(x.cat==='pur'){ w=sz.pur.w;h=sz.pur.h;mat=real?MAT.r_pur:MAT.f_pur; }
-      else { const z=sz[x.cat]; w=z.w;h=z.h; mat=real?MAT.r_steel:(['ridge','hip','brace','valley','knee','arm','king','web','bch','post'].includes(x.cat)?MAT.f_gold:MAT.f_raf); }
+      else { const z=sz[x.cat]; w=z.w;h=z.h; mat=real?MAT.r_steel:(['ridge','hip','brace','valley','knee','arm','king','web','bch','post','rbrace'].includes(x.cat)?MAT.f_gold:MAT.f_raf); }
       const up=x.cat==='pur'? (Math.max(sz.raf.h,(sz.mraf||sz.raf).h)/2+sz.pur.h/2) : 0;
       for(let i=0;i<x.pts.length-1;i++) box(g,x.pts[i].clone().add(V(0,up,0)),x.pts[i+1].clone().add(V(0,up,0)),w,h,mat);
     });
@@ -1444,7 +1453,7 @@ function draw(v,R,parts,sz,opt){
       v.labels.push({pos:facePts({...f,poly:[[u,vv]]})[0],txt:`แปห่าง ${fmt(i.act)} ม.`,cls:'dim',f:'pSp'}); }
     if(mode==='frame' && false){ // ปิดป้ายขนาดเหล็กบนภาพ — ให้เหลือเฉพาะหมายเลข
       const conc=state.col==='concrete', sizeOf=cat=>cat==='col'?(conc?'คอนกรีต':sz.col.short):sz[cat].short;
-      const dot={post:HEX.gold,mraf:HEX.raf,web:HEX.gold,bch:HEX.gold,king:HEX.gold,arm:HEX.gold,col:HEX.col,raf:HEX.raf,beam:HEX.raf,plate:HEX.raf,dorm:HEX.raf,ridge:HEX.gold,hip:HEX.gold,brace:HEX.gold,valley:HEX.gold,knee:HEX.gold,pur:HEX.pur};
+      const dot={rbrace:HEX.gold,post:HEX.gold,mraf:HEX.raf,web:HEX.gold,bch:HEX.gold,king:HEX.gold,arm:HEX.gold,col:HEX.col,raf:HEX.raf,beam:HEX.raf,plate:HEX.raf,dorm:HEX.raf,ridge:HEX.gold,hip:HEX.gold,brace:HEX.gold,valley:HEX.gold,knee:HEX.gold,pur:HEX.pur};
       ORDER.forEach(cat=>{ const ps=parts.filter(x=>x.cat===cat); if(!ps.length) return;
         const score=x=>{const m=x.pts[0].clone().lerp(x.pts[x.pts.length-1],0.5); return m.z-m.x*0.6+m.y*0.3;};
         const best=ps.reduce((a,b)=>score(b)>score(a)?b:a); const t=cat==='pur'?0.3:cat==='col'?0.75:0.5;
