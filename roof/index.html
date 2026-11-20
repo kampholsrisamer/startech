@@ -158,7 +158,8 @@ input,select{width:100%;padding:9px 10px;border:1px solid var(--line);border-rad
 @media(min-width:700px){.cv-hero h1{font-size:46px}}
 #consTbl td,#consTbl th{white-space:normal;vertical-align:top}
 #consTbl td:nth-child(2){white-space:nowrap}
-#sheetTbl td,#sheetTbl th{white-space:normal;vertical-align:top}
+#sheetTbl td,#sheetTbl th,#structTbl td,#structTbl th{white-space:normal;vertical-align:top}
+#structTbl td:nth-child(2),#structTbl td:nth-child(3){white-space:nowrap;text-align:center}
 #sheetTbl td:nth-child(2){white-space:nowrap}
 .swatches{display:flex;flex-wrap:wrap;gap:8px}
 .swatches button{width:38px;height:38px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 1.5px var(--line);cursor:pointer;position:relative}
@@ -340,6 +341,10 @@ details summary{cursor:pointer;color:var(--navy);font-weight:600;font-size:14px}
     <div class="tw" style="margin-top:10px"><table id="sheetTbl"></table></div>
     <div style="margin-top:12px"><button class="btn" id="copyBtn">คัดลอกสรุป</button><span id="copied"></span></div>
     <p class="note" id="notes"></p>
+  </div>
+  <div class="card" id="structCard">
+    <h2>ตรวจความแข็งแรงโครงสร้าง (เบื้องต้น)</h2>
+    <div id="structBox"></div>
   </div>
   <div class="card" id="orderCard">
     <h2>📞 สั่งซื้อ / ให้ติดต่อกลับ</h2>
@@ -813,6 +818,150 @@ function expand(R,p){
   return {parts,roofArea};
 }
 
+/* ===================== ตรวจความแข็งแรงโครงสร้างเบื้องต้น (ASD) =====================
+   เหล็กกล่องขึ้นรูปเย็น Fy 245 MPa (STKR400/มอก.107) · E 200,000 MPa · ความหนาจริงคิดจากน้ำหนักต่อเส้น
+   หน้าตัดบาง: ความกว้างประสิทธิผล (AISI) · โก่งเดาะ (AISC ASD) · Fb = 0.6Fy · Ft = 0.6Fy
+   น้ำหนักบรรทุก: ตายตัว (แผ่น/ฉนวน/แป/จันทัน) + จร 30 กก./ตร.ม. (กฎกระทรวงฯ ฉบับที่ 6) · คนเดินบนแป 100 กก.
+   ลมยก 50 กก./ตร.ม. (อาคารสูงไม่เกิน 10 ม.) กรณี 0.6D+W ให้หน่วยแรงเพิ่ม 1/3 · แอ่นตัว L/180 (แป/จันทัน) L/240 (คาน)
+   ใช้ประเมินขนาดเบื้องต้นเท่านั้น ไม่แทนการออกแบบและรับรองโดยวิศวกร */
+const ST={Fy:245, E:200000, g:9.81, LL:30, WIND:50, P:100, dRatio:{pur:180,raf:180,beam:240}};
+function secProp(s){
+  const H=s.h*1000, B=s.w*1000, A=(s.kg/6)/0.00785, t=A/(2*(H+B));
+  const I=(b,h)=>(b*h**3-(b-2*t)*(h-2*t)**3)/12, Ix=I(B,H), Iy=I(H,B);
+  const rho=(w,f)=>{ const lam=0.526*(w/t)*Math.sqrt(f/ST.E); return lam<=0.673?1:Math.max(0.05,(1-0.22/lam)/lam); };
+  const wB=Math.max(B-3*t,t), wH=Math.max(H-3*t,t);
+  const effS=(Ig,d,wc)=>{ const dA=(1-rho(wc,ST.Fy))*wc*t, yr=(d-t)/2, Ac=A-dA, yc=-dA*yr/Ac, Ic=Ig-dA*yr*yr-Ac*yc*yc; return {S:Ic/Math.max(d/2-yc,d/2+yc), I:Ic}; };
+  const ex=effS(Ix,H,wB), ey=effS(Iy,B,wH);
+  const Ae=A-2*(1-rho(wB,ST.Fy))*wB*t-2*(1-rho(wH,ST.Fy))*wH*t;
+  return {H,B,t,A,Ix,Iy,Sx:ex.S,Sy:ey.S,Iex:ex.I,Iey:ey.I,Q:Math.max(0.2,Ae/A),r:Math.sqrt(Math.min(Ix,Iy)/A),kgm:s.kg/6};
+}
+function Fa(sp,KL){ // MPa
+  const lam=KL/sp.r, Fy=sp.Q*ST.Fy, Cc=Math.sqrt(2*Math.PI**2*ST.E/Fy);
+  if(lam<=Cc){ const k=lam/Cc, FS=5/3+3/8*k-k**3/8; return (1-k*k/2)*Fy/FS; }
+  return 12*Math.PI**2*ST.E/(23*lam*lam);
+}
+function ssBeam(L,loads,w){ // ช่วงเดียวรองรับธรรมดา · L มม. · P นิวตัน · w N/mm
+  const R2=(loads.reduce((a,l)=>a+l.P*l.x,0)+w*L*L/2)/L, R1=loads.reduce((a,l)=>a+l.P,0)+w*L-R2;
+  const M=x=>R1*x-w*x*x/2-loads.reduce((a,l)=>a+(l.x<x?l.P*(x-l.x):0),0);
+  let Mm=0; [L/2,...loads.map(l=>l.x)].forEach(x=>{ if(x>=0&&x<=L) Mm=Math.max(Mm,Math.abs(M(x))); });
+  const dCoef=loads.reduce((a,l)=>{ const x=Math.min(l.x,L-l.x); return a+l.P*x*(3*L*L-4*x*x)/48; },0)+5*w*L**4/384; // δ×EI
+  return {M:Mm,R1,R2,dEI:dCoef};
+}
+function structCheck(R,parts,p,sz,sizeOf){
+  const th=p.slope*Math.PI/180, c=Math.cos(th)||1, sn=Math.sin(th);
+  const st=state.sheet, puD=st.puT==2?2.5:1.5, cover=5+(st.ins==='pe'?0.3:st.ins==='pu'?puD:st.ins==='sand'?puD+3:0);
+  const S=cat=>sizeOf?sizeOf(cat):sz[cat];
+  const out=[], add=(g,o)=>out.push(Object.assign({g},o));
+  const plan=pt=>[pt.x,pt.z];
+  const segInt=(a,b,c2,d)=>{ const r=[b[0]-a[0],b[1]-a[1]], s=[d[0]-c2[0],d[1]-c2[1]], den=r[0]*s[1]-r[1]*s[0]; if(Math.abs(den)<1e-9) return null;
+    const qp=[c2[0]-a[0],c2[1]-a[1]], t=(qp[0]*s[1]-qp[1]*s[0])/den, u=(qp[0]*r[1]-qp[1]*r[0])/den; return (t>=-0.02&&t<=1.02&&u>=-0.02&&u<=1.02)?{t:Math.min(1,Math.max(0,t)),u}:null; };
+  const yAt=(m,t)=>m.pts[0].y+t*(m.pts[1].y-m.pts[0].y);
+  // ----- แป -----
+  const rafs=parts.filter(x=>(x.cat==='raf'||x.cat==='mraf')&&x.pts.length===2);
+  const purs=parts.filter(x=>x.cat==='pur');
+  let purSpan=0, rafSpMax=0;
+  purs.forEach(pu=>{ const a=plan(pu.pts[0]), b=plan(pu.pts[1]); const ts=[];
+    rafs.forEach(r=>{ const h=segInt(a,b,plan(r.pts[0]),plan(r.pts[1])); if(h&&Math.abs(yAt(pu,h.t)-yAt(r,h.u))<0.4) ts.push(h.t); });
+    ts.sort((x,y)=>x-y); for(let i=1;i<ts.length;i++){ const L=(ts[i]-ts[i-1])*pu.len; if(L>0.05) purSpan=Math.max(purSpan,L); } });
+  rafSpMax=purSpan||p.rafSp;
+  { const s=S('pur'), sp=secProp(s), Lmm=rafSpMax*1000, D=cover+sp.kgm/p.pSp, qDL=(D+ST.LL)*p.pSp*ST.g/1000, qD=D*p.pSp*ST.g/1000, qW=(ST.WIND-0.6*D)*p.pSp*ST.g/1000;
+    const Fb=0.6*ST.Fy, Mx=qDL*c*Lmm*Lmm/8, My=qDL*sn*Lmm*Lmm/8;
+    const rB=Mx/(sp.Sx*Fb)+My/(sp.Sy*Fb), rW=qW>0?(qW*Lmm*Lmm/8)/(sp.Sx*Fb*4/3):0, d=5*qDL*c*Lmm**4/(384*ST.E*sp.Iex), rD=d/(Lmm/ST.dRatio.pur);
+    add('pur',{name:'แป',size:s,span:rafSpMax,ratio:Math.max(rB,rW,rD),note:`ช่วงแป ${fmt(rafSpMax)} ม. (ระยะจันทัน) · ดัด ${fmt(rB*100,0)}% · ลมยก ${fmt(rW*100,0)}% · แอ่น ${fmt(d,1)} มม. (${fmt(rD*100,0)}%)`}); }
+  // ----- จันทัน (หาจุดรองรับจริงจากโครง) -----
+  const supLines=parts.filter(x=>['beam','plate','ridge','hip','valley','bch'].includes(x.cat)&&x.pts.length===2);
+  const supPts=parts.filter(x=>['post','king','web','brace','arm'].includes(x.cat)).map(x=>x.pts[0].y>x.pts[1].y?x.pts[0]:x.pts[1]);
+  const loadsOn=new Map(); // แรงปฏิกิริยาจากจันทันลงคาน/อกไก่
+  const rafterCheck=(g,list,name)=>{ if(!list.length) return; let worst=null;
+    list.forEach(r=>{ if(r.pts.length!==2) return; const a=plan(r.pts[0]), b=plan(r.pts[1]), Lp=Math.hypot(b[0]-a[0],b[1]-a[1]); if(Lp<0.3) return; const sups=[];
+      supLines.forEach(m=>{ const h=segInt(a,b,plan(m.pts[0]),plan(m.pts[1])); if(h&&Math.abs(yAt(r,h.t)-yAt(m,h.u))<0.35) sups.push({t:h.t,m,u:h.u}); });
+      supPts.forEach(q=>{ const qq=plan(q), dx=b[0]-a[0], dz=b[1]-a[1], t=((qq[0]-a[0])*dx+(qq[1]-a[1])*dz)/(Lp*Lp);
+        if(t<-0.02||t>1.02) return; const px=a[0]+t*dx, pz=a[1]+t*dz; if(Math.hypot(px-qq[0],pz-qq[1])<0.06&&Math.abs(yAt(r,t)-q.y)<0.35) sups.push({t:Math.max(0,Math.min(1,t))}); });
+      sups.sort((x,y)=>x.t-y.t); const ts=sups.map(s=>s.t).filter((t,i,arr)=>i===0||t-arr[i-1]>0.01);
+      if(ts.length<2) return; // จันทันริมจั่ว (ยื่น) แปรับไว้
+      const Ls=r.len, spans=[]; for(let i=1;i<ts.length;i++) spans.push((ts[i]-ts[i-1])*Ls);
+      const cant=Math.max(ts[0]*Ls,(1-ts[ts.length-1])*Ls), Lmax=Math.max(0,...spans);
+      const cand={Lmax,cant,r}; if(!worst||Lmax*Lmax+3*cant*cant>worst.Lmax*worst.Lmax+3*worst.cant*worst.cant) worst=cand;
+      // แรงปฏิกิริยา (ประมาณ: ครึ่งช่วงซ้าย+ขวา) ลงชิ้นที่รองรับ
+      sups.forEach(sp0=>{ if(!sp0.m) return; const i=ts.findIndex(t=>Math.abs(t-sp0.t)<0.011); const left=i>0?(ts[i]-ts[i-1])*Ls/2:ts[0]*Ls, right=i<ts.length-1?(ts[i+1]-ts[i])*Ls/2:(1-ts[ts.length-1])*Ls;
+        const arr=loadsOn.get(sp0.m)||[]; arr.push({u:sp0.u,trib:left+right}); loadsOn.set(sp0.m,arr); }); });
+    if(!worst) return;
+    const s=S(g), sp=secProp(s), D=cover+S('pur').kg/6/p.pSp+sp.kgm/rafSpMax, q=(D+ST.LL)*rafSpMax*ST.g/1000*c, qW=(ST.WIND-0.6*D)*rafSpMax*ST.g/1000, Fb=0.6*ST.Fy;
+    const L=worst.Lmax*1000, a=worst.cant*1000, M=Math.max(q*L*L/8,q*a*a/2), Mw=Math.max(qW*L*L/8,qW*a*a/2);
+    const d=Math.max(5*q*L**4/(384*ST.E*sp.Iex), q*a**4/(8*ST.E*sp.Iex)), dl=Math.max(L/ST.dRatio.raf, 2*a/ST.dRatio.raf, 1);
+    const rB=M/(sp.Sx*Fb), rW=Mw>0?Mw/(sp.Sx*Fb*4/3):0, rD=d/dl;
+    add(g,{name,size:s,span:worst.Lmax,ratio:Math.max(rB,rW,rD),note:`ช่วงยาวสุด ${fmt(worst.Lmax)} ม.${worst.cant>0.05?` · ยื่น ${fmt(worst.cant)} ม.`:''} · ดัด ${fmt(rB*100,0)}% · ลมยก ${fmt(rW*100,0)}% · แอ่น ${fmt(d,1)} มม. (${fmt(rD*100,0)}%)`});
+  };
+  rafterCheck('raf',parts.filter(x=>x.cat==='raf'),'จันทัน (ชุดกลาง)');
+  rafterCheck('mraf',parts.filter(x=>x.cat==='mraf'),'จันทันหลัก (โครงถัก)');
+  // ----- คานหัวเสา / อกไก่ / ตะเฆ่ : รับแรงจากจันทันเป็นจุด ช่วงระหว่างเสา/ดั้ง -----
+  const colTops=parts.filter(x=>x.cat==='col').map(x=>x.pts[1]);
+  const vSup=parts.filter(x=>['col','king','post','web'].includes(x.cat)).map(x=>x.pts[0].y>x.pts[1].y?x.pts[0]:x.pts[1]);
+  const beamCheck=(g,cats,name)=>{ let worst=null;
+    parts.filter(x=>cats.includes(x.cat)&&x.pts.length===2).forEach(m=>{ const a=plan(m.pts[0]), b=plan(m.pts[1]), Lp=Math.hypot(b[0]-a[0],b[1]-a[1]); if(Lp<0.3) return;
+      const ts=[]; vSup.forEach(q=>{ const t=((q.x-a[0])*(b[0]-a[0])+(q.z-a[1])*(b[1]-a[1]))/(Lp*Lp); if(t<-0.01||t>1.01) return;
+        const px=a[0]+t*(b[0]-a[0]), pz=a[1]+t*(b[1]-a[1]); if(Math.hypot(px-q.x,pz-q.z)<0.06&&Math.abs(yAt(m,t)-q.y)<0.2) ts.push(Math.max(0,Math.min(1,t))); });
+      parts.filter(o=>o!==m&&['beam','plate','mraf','ridge'].includes(o.cat)&&o.pts.length===2).forEach(o=>{ const h=segInt(a,b,plan(o.pts[0]),plan(o.pts[1])); if(h&&Math.abs(yAt(m,h.t)-yAt(o,h.u))<0.25) ts.push(h.t); });
+      ts.sort((x,y)=>x-y); const T=ts.filter((t,i,arr)=>i===0||t-arr[i-1]>0.01); if(T.length<2) return;
+      const ld=loadsOn.get(m)||[], sp=secProp(S(g)), D=cover+S('pur').kg/6/p.pSp, wArea=(D+ST.LL)*ST.g; // N/m²
+      for(let i=1;i<T.length;i++){ const t0=T[i-1], t1=T[i], L=(t1-t0)*m.len*1000; if(L<200) continue;
+        const loads=ld.filter(l=>l.u>t0+1e-3&&l.u<t1-1e-3).map(l=>({x:(l.u-t0)*m.len*1000,P:wArea*l.trib*rafSpMax}));
+        const r=ssBeam(L,loads,sp.kgm*ST.g/1000), cand={L:L/1000,M:r.M,dEI:r.dEI,n:loads.length,m}; if(!worst||r.M>worst.M) worst=cand; }
+      if(ld.length){ const tEnd=[T[0],T[T.length-1]]; ld.forEach(l=>{ const a2=l.u<tEnd[0]?(tEnd[0]-l.u)*m.len:(l.u>tEnd[1]?(l.u-tEnd[1])*m.len:0); if(a2>0.05){ const M=wArea*l.trib*rafSpMax*a2*1000; if(!worst||M>worst.M) worst={L:a2,M,dEI:0,n:1,cant:true,m}; } }); } });
+    if(!worst) return; const sp=secProp(S(g)), rB=worst.M/(sp.Sx*0.6*ST.Fy), d=worst.dEI/(ST.E*sp.Iex), rD=worst.cant?0:d/(worst.L*1000/ST.dRatio.beam);
+    add(g,{name,size:S(g),span:worst.L,ratio:Math.max(rB,rD),note:`${worst.cant?'ยื่น':'ช่วงยาวสุด'} ${fmt(worst.L)} ม. · รับจันทัน ${worst.n} ตัว · ดัด ${fmt(rB*100,0)}% · แอ่น ${fmt(d,1)} มม. (${fmt(rD*100,0)}%)`}); };
+  beamCheck('beam',['beam','plate'],'คานหัวเสา / อะเส');
+  beamCheck('ridge',['ridge','hip','valley'],'อกไก่ / ตะเฆ่ / ท้องร่อง');
+  // ----- ชิ้นรับแรงอัด: เหล็กถัก ดั้ง เหล็กตั้ง ค้ำยัน (ตรวจความชะลูด + แรงอัดประมาณจากพื้นที่รับน้ำหนัก) -----
+  const D0=cover+S('pur').kg/6/p.pSp+S('raf').kg/6/rafSpMax, wA=(D0+ST.LL)*ST.g; // N/m² (ตามแนวลาด)
+  const fr=R.frames||(R._grid&&R._grid.xs)||[], bay=Math.max(p.colSp, ...fr.slice(1).map((x,i)=>x-fr[i]));
+  const compCheck=(g,cats,name,Pfun)=>{ const ms=parts.filter(x=>cats.includes(x.cat)&&x.pts.length===2); if(!ms.length) return; let worst=null;
+    ms.forEach(m=>{ const sp=secProp(S(g)), L=m.len*1000, P=Pfun(m), fa=P/sp.A, F=Fa(sp,L), ratio=Math.max(fa/F,(L/sp.r)/200); if(!worst||ratio>worst.ratio) worst={ratio,L:m.len,P,F,sp}; });
+    add(g,{name,size:S(g),span:worst.L,ratio:worst.ratio,note:`ยาวสุด ${fmt(worst.L)} ม. · แรงอัด≈${fmt(worst.P/ST.g,0)} กก. · ความชะลูด KL/r ${fmt(worst.L*1000/worst.sp.r,0)} (≤200)`}); };
+  const trussW=(R.W||p.W)/ (c||1)*bay*wA; // น้ำหนักรวมที่โครงถักหนึ่งตัวรับ (N)
+  compCheck('web',['web','king'],'เหล็กถัก / ดั้งจั่ว (โครงถักหลัก)',m=>trussW/2/Math.max(0.5,Math.abs(m.pts[1].y-m.pts[0].y)/m.len));
+  compCheck('post',['post'],'เหล็กตั้งถัก (เพิง)',()=>wA*rafSpMax*Math.min(6,p.W)/2);
+  compCheck('brace',['brace','arm'],'ค้ำยัน / ขายึด',()=>wA*rafSpMax*p.W*0.8);
+  if(parts.some(x=>x.cat==='mraf')){ const sp=secProp(S('mraf')), C=trussW/2/Math.max(0.15,sn), Lp=1.0*1000, fa=C/sp.A, F=Fa(sp,Lp), Tt=trussW/2/Math.max(0.15,Math.tan(th)), spb=secProp(S('beam')), rt=Tt/(0.6*ST.Fy*spb.A);
+    add('mrafAx',{name:'จันทันหลักรับแรงอัดในโครงถัก',size:S('mraf'),span:1,ratio:fa/F,note:`แรงอัด≈${fmt(C/ST.g,0)} กก. (ประมาณ) · ระยะค้ำ 1 ม.`});
+    add('bchAx',{name:'ขื่อล่าง (คานหัวเสา) รับแรงดึง',size:S('beam'),span:p.W,ratio:rt,note:`แรงดึง≈${fmt(Tt/ST.g,0)} กก. (ประมาณ)`}); }
+  // ----- เสา -----
+  if(!SUB(state.sub).noCol && state.col==='steel' && colTops.length){ const s=S('col'), sp=secProp(s), braced=(R.walls||[]).length>0, K=braced?1:2;
+    const xs=[...new Set(colTops.map(q=>+q.x.toFixed(2)))].sort((a,b)=>a-b), zs=[...new Set(colTops.map(q=>+q.z.toFixed(2)))].sort((a,b)=>a-b);
+    const half=(arr,v)=>{ const i=arr.indexOf(+v.toFixed(2)); const l=i>0?(arr[i]-arr[i-1])/2:p.ovh, r=i<arr.length-1?(arr[i+1]-arr[i])/2:p.ovh; return l+r; };
+    let worst=null; colTops.forEach(q=>{ const A=half(xs,q.x)*half(zs,q.z)/c, P=A*wA, L=q.y*1000*K, F=Fa(sp,L), ratio=Math.max(P/sp.A/F,(L/sp.r)/200); if(!worst||ratio>worst.ratio) worst={ratio,P,h:q.y,A}; });
+    add('col',{name:'เสาเหล็ก',size:s,span:worst.h,ratio:worst.ratio,note:`สูง ${fmt(worst.h)} ม. · รับพื้นที่หลังคา ${fmt(worst.A,1)} ตร.ม. ≈ ${fmt(worst.P/ST.g,0)} กก. · ${braced?'มีผนังยึด K=1':'โครงเปิด ไม่มีผนังยึด K=2'}`}); }
+  return out;
+}
+// กลุ่ม → ช่องเลือกขนาด
+const STRUCT_SEL={pur:'pSize',raf:'rSize',post:'rSize',brace:'rSize',mraf:'mSize',web:'mSize',ridge:'mSize',mrafAx:'mSize',beam:'bSize',bchAx:'bSize',col:'colSize'};
+
+const SEL_OF=cat=>cat==='pur'?'pSize':cat==='col'?'colSize':(cat==='beam'||cat==='plate')?'bSize':MAINCATS.includes(cat)?'mSize':'rSize';
+function renderStruct(R,parts,p,sz){
+  const box=$('structBox'); if(!box) return; $('structCard').classList.toggle('hide',!BRANCH); if(!BRANCH){ box.innerHTML=''; return; } let res=[];  // ช่วงทดสอบ: แสดงเฉพาะสาขา
+  try{ res=structCheck(R,parts,p,sz); }catch(e){ box.innerHTML='<p class="note">ตรวจไม่ได้สำหรับรูปแบบนี้</p>'; return; }
+  window._struct=res; const bad=res.filter(r=>r.ratio>1);
+  const col=r=>r>1?'#c62828':r>0.85?'#b26a00':'#2e7d32';
+  box.innerHTML=`<div class="info" style="border-left:4px solid ${bad.length?'#c62828':'#2e7d32'}">${bad.length?`<b>⚠️ มี ${bad.length} รายการที่เหล็กเล็กเกินไป</b> — กดปุ่มด้านล่างให้แอปเลือกขนาดที่ผ่านให้`:'<b>✅ ขนาดเหล็กที่เลือกผ่านการตรวจเบื้องต้นทุกรายการ</b>'}</div>
+  <div class="tw" style="margin-top:8px"><table id="structTbl"><thead><tr><th>ชิ้นส่วน</th><th>ขนาด</th><th>ใช้กำลัง</th></tr></thead><tbody>
+  ${res.map(r=>`<tr><td><b>${r.name}</b><br><small style="color:#66718a">${r.note}</small></td><td>${r.size.short}</td><td><b style="color:${col(r.ratio)}">${fmt(r.ratio*100,0)}%</b><br><small>${r.ratio>1?'ไม่ผ่าน':'ผ่าน'}</small></td></tr>`).join('')}
+  </tbody></table></div>
+  <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="autoSize" ${bad.length?'':'disabled style="opacity:.5"'}>เลือกขนาดเหล็กที่ผ่านให้อัตโนมัติ</button></div>
+  <p class="note" style="margin-top:8px">คิดน้ำหนักแผ่นหลังคาและฉนวนตามที่เลือก + น้ำหนักจร 30 กก./ตร.ม. + ลมยก 50 กก./ตร.ม. · เหล็กกล่อง Fy 245 MPa คิดความหนาจริงจากน้ำหนักต่อเส้น · ใช้ประเมินขนาดเหล็กเบื้องต้นเท่านั้น ไม่ใช่แบบที่วิศวกรรับรอง อาคารที่ต้องขออนุญาตต้องให้วิศวกรโยธาออกแบบและรับรอง</p>`;
+  $('autoSize').onclick=()=>autoSize();
+}
+function autoSize(){
+  const p=cleanP(), R=build(state.sub,p), {parts}=expand(R,p), base=sizes(), pick={};
+  const order=['pSize','rSize','mSize','bSize']; if(state.col==='steel'&&!SUB(state.sub).noCol) order.push('colSize');
+  const cur={pSize:$('pSize').value,rSize:$('rSize').value,mSize:$('mSize').value,bSize:$('bSize').value,colSize:state.colSize};
+  const sizeOf=cat=>S(pick[SEL_OF(cat)]||cur[SEL_OF(cat)]);
+  order.forEach(sel=>{ const opts=(sel==='colSize'?STEEL.filter(s=>!['1x1_12','15x15_12','mon_07'].includes(s.id)).map(s=>s.id):[...$(sel).options].map(o=>o.value)).filter(id=>id!=='mon_07'&&!['1x1_12','15x15_12'].includes(id)).map(S).filter(c=>c.kg>=S(cur[sel]).kg-1e-9).sort((a,b)=>a.kg-b.kg); // เพิ่มขนาดเท่านั้น ไม่ลดจากมาตรฐานช่าง
+    let chosen=null; for(const c of opts){ pick[sel]=c.id; const r=structCheck(R,parts,p,base,sizeOf).filter(x=>STRUCT_SEL[x.g]===sel); if(r.every(x=>x.ratio<=1)){ chosen=c.id; break; } }
+    pick[sel]=chosen||opts[opts.length-1].id; });
+  ['pSize','rSize','mSize','bSize'].forEach(k=>{ if(pick[k]) $(k).value=pick[k]; }); if(pick.colSize) state.colSize=pick.colSize;
+  refresh(); const bad=(window._struct||[]).filter(r=>r.ratio>1);
+  if(bad.length) setTimeout(()=>alert('บางรายการยังไม่ผ่านแม้ใช้เหล็กใหญ่สุด: '+bad.map(b=>b.name).join(', ')+' — ควรลดระยะเสา/ระยะจันทัน หรือปรึกษาวิศวกร'),50);
+}
 function barsNeeded(pieces){
   let full=0; const rem=[];
   pieces.forEach(p=>{ while(p>BAR+1e-6){full++; p-=BAR;} if(p>1e-6) rem.push(p); });
@@ -1067,6 +1216,7 @@ function calc(){
   if(conc) conc.forEach(c=>h+=`<tr><td>เสาคอนกรีต</td><td>สูง ${fmt(c.h)} ม.</td><td>${c.n} ต้น</td><td>${fmt(c.h*c.n)}</td><td>–</td>${BRANCH?`<td>${concPrice?money(concPrice):'–'}</td>`:''}<td>–</td><td>${concPrice?money(c.n*concPrice):'–'}</td>${COST?'<td>–</td><td>–</td>':''}</tr>`);
   h+=`</tbody><tfoot><tr><td colspan="4">รวม</td><td>${totBars}</td>${BRANCH?'<td></td>':''}<td>${fmt(totKg,1)}</td><td>${money(grand)}</td>${COST?`<td>${money(steelCost)}</td><td>${money(steelSell-steelCost)}</td>`:''}</tr></tfoot>`;
   $('boq').innerHTML=h;
+  renderStruct(R,parts,p,sz);
   const cs=consumables(R,parts,sz); window._cons=cs;
   const SH=sheetCalc(R,parts); window._sheet=SH;
   $('sheetTbl').innerHTML = !SH ? '' : `<thead><tr><th>แผ่นหลังคา + อุปกรณ์</th><th>จำนวน</th>${BRANCH?'<th>ราคา/หน่วย</th>':''}<th>รวม (฿)</th>${COST?'<th>ทุน (฿)</th><th>กำไร (฿)</th>':''}</tr></thead><tbody>
