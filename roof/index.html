@@ -399,6 +399,10 @@ const STEEL = [ // ราคาจาก price list StarTechSteel (ราคา�
   {id:'4x2_15',   name:'เหล็กกล่อง 4"×2" หนา 1.5',     short:'4×2" (1.5)',     kg:17.75, sell:600, w:0.0508, h:0.1016},
   {id:'3x3_15',   name:'เหล็กกล่อง 3"×3" หนา 1.5',     short:'3×3" (1.5)',     kg:20.40, sell:650, w:0.0762, h:0.0762},
   {id:'4x4_15',   name:'เหล็กกล่อง 4"×4" หนา 1.5',     short:'4×4" (1.5)',     kg:24.00, sell:850, w:0.1016, h:0.1016},
+  // ไม่มีใน price list บริษัท: ราคาขายออนไลน์ HomePro (ราคาต่ำสุดที่แสดง ไม่รวมค่าส่ง) + 15% · ตรวจ 21 พ.ย. 2569
+  {id:'4x2_19',   name:'เหล็กกล่อง 4"×2" หนา 1.9',     short:'4×2" (1.9)',     kg:26.51, sell:836,  w:0.0508, h:0.1016, web:{src:'HomePro TMT SKU 1110051',base:727}},
+  {id:'3x3_23',   name:'เหล็กกล่อง 3"×3" หนา 2.3',     short:'3×3" (2.3)',     kg:28.72, sell:928,  w:0.0762, h:0.0762, web:{src:'HomePro PACIFIC SKU 1109921',base:807}},
+  {id:'4x4_20',   name:'เหล็กกล่อง 4"×4" หนา 2.0',     short:'4×4" (2.0)',     kg:33.54, sell:1277, w:0.1016, h:0.1016, web:{src:'HomePro PREGAL SKU 1307196',base:1110}},
   {id:'mon_07',   name:'แปโมเนีย 0.70 มม.',            short:'แปโมเนีย 0.7',   kg:3.22,  sell:130, w:0.03,   h:0.05},
 ];
 const CONS={weldPerRod:12, rodsPerPack:125, packKg:2, cutsPerDisc:150, waste:10}; // อัตราลวดเชื่อม/ใบตัด
@@ -1019,9 +1023,9 @@ function autoPick(R,parts,p,fromCur){ const base=sizes(), pick={};
   const U=state.userSz||{}, kgOf=id=>S(id).kg;
   const cur={}; order.forEach(k=>{ const a=fromCur?(k==='colSize'?state.colSize:$(k).value):STD_SZ[k], u=U[k]; cur[k]=(u&&kgOf(u)>kgOf(a))?u:a; });
   const sizeOf=cat=>S(pick[SEL_OF(cat)]||cur[SEL_OF(cat)]||(SEL_OF(cat)==='colSize'?state.colSize:$(SEL_OF(cat)).value));
-  order.forEach(sel=>{ const opts=(sel==='colSize'?STEEL.map(s=>s.id):[...$(sel).options].map(o=>o.value)).filter(id=>id!=='mon_07'&&!['1x1_12','15x15_12'].includes(id)).map(S).filter(c=>c.kg>=S(cur[sel]).kg-1e-9).sort((a,b)=>((a.sell||0)-(b.sell||0))||(b.kg-a.kg));
+  order.forEach(sel=>{ const opts=(sel==='colSize'?STEEL.filter(s=>Math.abs(s.w-s.h)<1e-6).map(s=>s.id):[...$(sel).options].map(o=>o.value)).filter(id=>id!=='mon_07'&&!['1x1_12','15x15_12'].includes(id)).map(S).filter(c=>c.kg>=S(cur[sel]).kg-1e-9).sort((a,b)=>((a.sell||0)-(b.sell||0))||(b.kg-a.kg));
     let chosen=null; for(const c of opts){ pick[sel]=c.id; const r=structCheck(R,parts,p,base,sizeOf).filter(x=>STRUCT_SEL[x.g]===sel); if(r.every(x=>x.ratio<=1)){ chosen=c.id; break; } }
-    pick[sel]=chosen||cur[sel]; if(!chosen) pick._fail=true; });
+    pick[sel]=chosen||(opts.length?opts[opts.length-1].id:cur[sel]); if(!chosen) pick._fail=true; });
   return pick; }
 function applyPick(pick){ ['pSize','rSize','mSize','bSize'].forEach(k=>{ if(pick[k]) $(k).value=pick[k]; }); if(pick.colSize) state.colSize=pick.colSize; }
 function autoSize(){
@@ -1118,7 +1122,7 @@ function fillSelect(el, def){ el.innerHTML = STEEL.map(s=>`<option value="${s.id
 fillSelect($('pSize'),'2x1_12'); fillSelect($('mSize'),'4x2_12'); fillSelect($('rSize'),'3x15_12'); fillSelect($('bSize'),'4x2_12');
 ['pSize','mSize','rSize','bSize'].forEach(id=>$(id).addEventListener('input',()=>{ state.userSz[id]=$(id).value; calc(); })); $('concPrice').addEventListener('input',calc);
 function renderSteelTable(){ const bx=document.getElementById('steelTblBox'); if(bx) bx.style.display=BRANCH?'':'none'; $('steelTable').innerHTML = `<div class="tw"><table><thead><tr><th>รายการ</th><th>กก./เส้น</th><th>ราคาขาย/เส้น</th>${COST?'<th>ทุน/เส้น (รวม VAT)</th><th>กำไร/เส้น</th>':''}</tr></thead><tbody>`+
-  STEEL.map(s=>`<tr><td>${s.name}</td><td>${fmt(s.kg)}</td><td>${money(s.sell)}</td>${COST?`<td>${fmt(COST[s.id])}</td><td>${fmt(s.sell-COST[s.id])}</td>`:''}</tr>`).join('')+'</tbody></table></div>'; }
+  STEEL.map(s=>{ const c=COST?(COST[s.id]!=null?COST[s.id]:(s.web?s.web.base:null)):null; return `<tr><td>${s.name}${s.web?`<br><small style="color:#b26a00">ไม่มีใน price list · ${s.web.src} ${money(s.web.base)} ฿ + 15% (ทุน = ราคาเว็บ)</small>`:''}</td><td>${fmt(s.kg)}</td><td>${money(s.sell)}</td>${COST?`<td>${c==null?'-':fmt(c)}</td><td>${c==null?'-':fmt(s.sell-c)}</td>`:''}</tr>`; }).join('')+'</tbody></table></div>'; }
 renderSteelTable();
 const CONSF=[['weldPerRod','ลวด 1 เส้น เชื่อมได้ยาว (ซม.)',1],['rodsPerPack','ลวด 1 กล่อง มีกี่เส้น',10],['packKg','น้ำหนักต่อกล่อง (กก.)',0.5],['cutsPerDisc','ใบตัด 1 ใบ ตัดเหล็ก 2×1 ได้ (รอย)',1],['waste','เผื่อเสีย (%)',1]];
 $('consSet').innerHTML=CONSF.map(([k,l,st])=>`<div><label>${l}</label><input type="number" step="${st}" data-cons="${k}" value="${CONS[k]}"></div>`).join('');
@@ -1264,7 +1268,7 @@ function calc(){
     const pieces=ps.map(x=>x.len), size=sz[cat], bars=barsNeeded(pieces);
     const lens={}; pieces.forEach(l=>{const k=fmt(l); lens[k]=(lens[k]||0)+1;});
     const desc=Object.entries(lens).length<=3 ? Object.entries(lens).map(([l,n])=>`${n}×${l}`).join(', ')+' ม.' : `${pieces.length} ชิ้น (ยาวไม่เท่ากัน)`;
-    items.push({cat,name:CATNAME[cat],size,pieces,desc,len:pieces.reduce((a,b)=>a+b,0),bars,kg:bars*size.kg,price:bars*size.sell,cost:COST?bars*COST[size.id]:0});
+    items.push({cat,name:CATNAME[cat],size,pieces,desc,len:pieces.reduce((a,b)=>a+b,0),bars,kg:bars*size.kg,price:bars*size.sell,cost:COST?bars*(COST[size.id]!=null?COST[size.id]:(size.web?size.web.base:0)):0});
   });
   const totKg=items.reduce((a,b)=>a+b.kg,0), totBars=items.reduce((a,b)=>a+b.bars,0);
   const concCount=conc?conc.reduce((a,b)=>a+b.n,0):0, steelSell=items.reduce((a,b)=>a+b.price,0), steelCost=items.reduce((a,b)=>a+b.cost,0), grand=steelSell+concCount*concPrice;
