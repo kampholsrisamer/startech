@@ -929,7 +929,7 @@ function structCheck(R,parts,p,sz,sizeOf){
     const Fb=0.6*ST.Fy, Mx=qDL*c*Lmm*Lmm/8, My=qDL*sn*Lmm*Lmm/8;
     const rB=Mx/(sp.Sx*Fb)+My/(sp.Sy*Fb), rW=qW>0?(qW*Lmm*Lmm/8)/(sp.Sx*Fb*4/3):0, d=5*qDL*c*Lmm**4/(384*ST.E*sp.Iex), rD=d/(Lmm/ST.dRatio.pur);
     const Pn=ST.P*ST.g, MP=Pn*Lmm/4+qD*c*Lmm*Lmm/8, rP=MP/(sp.Sx*Fb); // แรงคนเดินคิดแกนแข็ง (แผ่นหลังคายึดแกนอ่อน)
-    add('pur',{name:'แป',size:s,span:rafSpMax,ratio:Math.max(rB,rW,rD,rP),note:`ช่วงแป ${fmt(rafSpMax)} ม. (ระยะจันทัน) · ดัด ${fmt(rB*100,0)}% · คนเดิน ${ST.P} กก. กลางช่วง ${fmt(rP*100,0)}% · ลมยก ${fmt(rW*100,0)}% · แอ่น ${fmt(d,1)} มม. (${fmt(rD*100,0)}%)`}); }
+    add('pur',{name:'แป',size:s,span:rafSpMax,ratio:Math.max(rB,rW,rD,rP),note:`ช่วงแป ${fmt(rafSpMax)} ม. (ระยะจันทัน) · ดัด ${fmt(rB*100,0)}% · คนเดิน ${ST.P} กก. กลางช่วง ${fmt(rP*100,0)}% · ลมยก ${fmt(rW*100,0)}% (แรงถอนที่จุดยึดแป-จันทัน ≈ ${fmt(Math.max(0,WUP-0.6*D)*p.pSp*rafSpMax,0)} กก./จุด) · แอ่น ${fmt(d,1)} มม. (${fmt(rD*100,0)}%)`}); }
   // ----- จันทัน (หาจุดรองรับจริงจากโครง) -----
   const supLines=parts.filter(x=>['beam','plate','rpur','ridge','hip','valley','bch'].includes(x.cat)&&x.pts.length===2);
   const supPts=parts.filter(x=>['post','king','web','brace','arm'].includes(x.cat)).map(x=>x.pts[0].y>x.pts[1].y?x.pts[0]:x.pts[1]);
@@ -971,7 +971,8 @@ function structCheck(R,parts,p,sz,sizeOf){
         const r=ssBeam(L,loads,sp.kgm*ST.g/1000), cand={L:L/1000,M:r.M,dEI:r.dEI,n:loads.length,m}; if(!worst||r.M>worst.M) worst=cand; }
       if(ld.length){ const tEnd=[T[0],T[T.length-1]]; ld.forEach(l=>{ const a2=l.u<tEnd[0]?(tEnd[0]-l.u)*m.len:(l.u>tEnd[1]?(l.u-tEnd[1])*m.len:0); if(a2>0.05){ const M=wArea*l.trib*rafSpMax*a2*1000; if(!worst||M>worst.M) worst={L:a2,M,dEI:0,n:1,cant:true,m}; } }); } });
     if(!worst) return; const sp=secProp(S(g)), rB=worst.M/(sp.Sx*0.6*ST.Fy), d=worst.dEI/(ST.E*sp.Iex), rD=worst.cant?0:d/(worst.L*1000/ST.dRatio.beam);
-    add(g,{name,size:S(g),span:worst.L,ratio:Math.max(rB,rD),note:`${worst.cant?'ยื่น':'ช่วงยาวสุด'} ${fmt(worst.L)} ม. · รับจันทัน ${worst.n} ตัว · ดัด ${fmt(rB*100,0)}% · แอ่น ${fmt(d,1)} มม. (${fmt(rD*100,0)}%)`}); };
+    const Dx=cover+S('pur').kg/6/p.pSp+S('raf').kg/6/rafSpMax, rU=rB*Math.max(0,WUP-0.6*Dx)/(Dx+ST.LL)*3/4; // ลมยก (0.6D+W) ตรวจแยก ×4/3
+    add(g,{name,size:S(g),span:worst.L,ratio:Math.max(rB,rD,rU),note:`${worst.cant?'ยื่น':'ช่วงยาวสุด'} ${fmt(worst.L)} ม. · รับจันทัน ${worst.n} ตัว · ดัด ${fmt(rB*100,0)}% · ลมยก ${fmt(rU*100,0)}% · แอ่น ${fmt(d,1)} มม. (${fmt(rD*100,0)}%)`}); };
   beamCheck('beam',['beam','plate'],'คานหัวเสา / อะเส');
   beamCheck('rpur',['rpur'],'แปรองจันทัน (กลางลาด)');
   beamCheck('ridge',['ridge','hip','valley'],'อกไก่ / ตะเฆ่ / ท้องร่อง');
@@ -1203,7 +1204,7 @@ function consumables(R,parts,sz){
   const per=s=>2*(s.w+s.h)*100, ref=per(S('2x1_12')), steel=state.col==='steel';
   let weld=0, joints=0, cuts=0, cutEq=0;
   const J=(n,cm)=>{ joints+=n; weld+=n*cm; };
-  J(R.cross||0, 2*sz.pur.w*100);                                   // แป-จันทัน
+  J(R.cross||0, 2*Math.max(4,sz.pur.w*100));                       // แป-จันทัน: เชื่อม 2 ด้าน ด้านละ ≥ 30–40 มม. (วิศวกร)
   parts.forEach(x=>{ const s=sz[x.cat]; if(!s) return;
     if(['raf','rpur','post','kbrace','rbrace','mraf','web','bch','ridge','hip','valley','knee','king','brace','arm','dorm'].includes(x.cat)) J(2, per(s)*0.5);   // ปลายชิ้น
     if(x.cat==='beam') J(2, per(s)*0.75);                            // คาน-หัวเสา
@@ -1224,7 +1225,9 @@ function sheetCalc(R,parts){
   const sumCat=cat=>parts.filter(x=>x.cat===cat).reduce((a,b)=>a+b.len,0);
   const T=SHEETS[state.sheet.type], ridge=sumCat('ridge')+sumCat('hip'), st=state.sheet;
   const row=thkList().find(x=>x[0]===st.t)||thkList()[0], add=PROFILE_ADD[st.type]||PROFILE_ADD[state.sub]||0, pm=row[1]==null?null:row[1]+add, colored=finishOf()==='color';
-  const screws=w?Math.ceil(meters*T.scr):null, capScrews=Math.ceil(ridge*CAP_SCREW);
+  const pp=cleanP(), Wp=(pp.W||0)+2*(pp.ovh||0), Lp=(pp.L||pp.W||0)+2*(pp.ovh||0), aE=Math.max(1,0.1*Math.min(Wp,Lp)), kS=Wp*Lp>0?area/(Wp*Lp):1, edgeA=Math.min(area*0.6,2*(Wp+Lp)*aE*kS);
+  const scrMin=st.type==='snap'?0:Math.ceil((area-edgeA)*5+edgeA*7);   // วิศวกร: กลางหลังคา 4–5 ตัว/ตร.ม. · ขอบ–มุม 6–8 ตัว/ตร.ม.
+  const screws=w?Math.max(Math.ceil(meters*T.scr),scrMin):null, capScrews=Math.ceil(ridge*CAP_SCREW);
   const scrKey= st.type==='snap'?'short' : ((st.ins==='pu'||st.ins==='sand')?(st.puT===2?'long100':'long75'):'long50'), sc=SCREW[scrKey], scP=colored?sc.pc:sc.p, shP=colored?SCREW.short.pc:SCREW.short.p;
   const lines=[];
   const L=(name,detail,qty,unit,up,amt,cost)=>lines.push({name,detail,qty,unit,up,amt,cost});
