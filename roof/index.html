@@ -266,6 +266,9 @@ details summary{cursor:pointer;color:var(--navy);font-weight:600;font-size:14px}
     <div class="grid2" id="dimFields"></div>
     <div class="sub">ระยะโครง</div>
     <div class="grid2" id="spFields"></div>
+    <div class="sub">ที่ตั้งโครงการ (ใช้คำนวณแรงลม)</div>
+    <div class="grid2"><div><label>จังหวัด</label><select id="wProv"></select></div><div><label>อำเภอ</label><select id="wDist"></select></div></div>
+    <div class="hint" id="windHint"></div>
   </div>
 
   <div class="card hide step">
@@ -465,7 +468,7 @@ const FIELDS = {
   side:{l:'กันสาดยื่นจากด้าน', sel:[['eave','ด้านชายคา (ด้านยาว)'],['gable','ด้านหน้าจั่ว']]},
   colSp:{l:'ระยะห่างเสา ไม่ต่ำกว่า (ม.)', st:0.1}, rafSp:{l:'ระยะห่างจันทัน ไม่เกิน (ม.)', st:0.1}, pSp:{l:'ระยะวางแป ไม่เกิน (ม.)', st:0.1},
 };
-const state = {cat:null, sub:null, col:'steel', colSize:'4x4_15', view:'line', p:{}, sheet:{type:'none', pu:false, ins:'none', w:null, t:'0.35', grade:'imp', color:'navy', puT:1, puFace:'foil', puPat:'orange', install:false}};
+const state = {loc:{pc:'',dc:''}, cat:null, sub:null, col:'steel', colSize:'4x4_15', view:'line', p:{}, sheet:{type:'none', pu:false, ins:'none', w:null, t:'0.35', grade:'imp', color:'navy', puT:1, puFace:'foil', puPat:'orange', install:false}};
 const $ = id => document.getElementById(id);
 const rad = d => d*Math.PI/180;
 const fmt=(n,d=2)=>(+n).toLocaleString('th-TH',{maximumFractionDigits:d,minimumFractionDigits:0});
@@ -885,10 +888,21 @@ function ssBeam(L,loads,w){ // ช่วงเดียวรองรับธ�
   const dCoef=loads.reduce((a,l)=>{ const x=Math.min(l.x,L-l.x); return a+l.P*x*(3*L*L-4*x*x)/48; },0)+5*w*L**4/384; // δ×EI
   return {M:Mm,R1,R2,dEI:dCoef};
 }
+const WIND_ZONE={"63":"2","10":"1","11":"1","12":"1","13":"1","14":"1","15":"1","16":"1","17":"1","18":"1","19":"1","20":"1","21":"1","22":"1","23":"1","24":"1","25":"1","26":"1","27":"1","70":"1","71":"1","72":"1","73":"1","74":"1","75":"1","30":"1","31":"1","32":"1","33":"1","36":"1","39":"1","40":"1","41":"1","42":"1","44":"1","45":"1","46":"1","47":"1","60":"1","61":"1","62":"1","64":"1","65":"1","66":"1","67":"1","53":"1","34":"2","35":"2","37":"2","43":"2","48":"2","49":"2","38":"2","51":"2","52":"2","54":"2","55":"2","50":"3","56":"3","57":"3","58":"3","77":"4A","80":"4A","82":"4A","84":"4A","85":"4A","86":"4A","91":"4A","93":"4A","96":"4A","81":"4A","92":"4A","83":"4A","90":"4A","94":"4A","95":"4A","76":"4B"};
+const WIND_NOTE={'38':'บึงกาฬไม่อยู่ในตาราง ก-1 (ตั้งจังหวัดภายหลัง) ใช้กลุ่มเดียวกับหนองคาย','63':'ตาก: อ.อุ้มผาง กลุ่ม 1 อำเภออื่นกลุ่ม 2'};
+['80','84','81','92','83','90','94','95','82','85','86','91','93','96','77'].forEach(c=>WIND_NOTE[c]=WIND_NOTE[c]||'ภาคใต้: ใช้กลุ่ม 4A (V = 30 ม./วินาที) ไว้ก่อนทั้งจังหวัด รอตรวจรายอำเภอ');
+const WZ_V={'1':25,'2':27,'3':29,'4A':30,'4B':27}, WCFG={rho:1.25, Iw:1.0, cpRoof:1.3, cpi:0.3, hMax:12};
+function windInfo(p,hTop){ const G=(()=>{ try{ return GEO; }catch(e){ return null; } })()||{p:[],d:[]}; const L=state.loc||{}, pc=L.pc||'', dc=L.dc||'';
+  let zone=pc?WIND_ZONE[pc]:'2'; const dn=dc?(G.d.find(d=>d[0]===dc)||[])[2]:'';
+  if(pc==='63') zone=(dn&&dn.includes('อุ้มผาง'))?'1':'2';
+  const V=WZ_V[zone]||27, h=Math.max(p.H,((p.H||3)+(hTop||p.H||3))/2), Ce=Math.max(0.9,Math.pow(h/10,0.2)), q=0.5*WCFG.rho*V*V/ST.g;
+  const up=WCFG.Iw*q*Ce*(WCFG.cpRoof+WCFG.cpi);
+  return {pc,dc,prov:pc?(G.p.find(x=>x[0]===pc)||[])[1]:'',dist:dn,zone,V,h,Ce,q,up,assumed:!pc,note:WIND_NOTE[pc]||'',tooHigh:(hTop||0)>WCFG.hMax}; }
 function structCheck(R,parts,p,sz,sizeOf){
   const th=p.slope*Math.PI/180, c=Math.cos(th)||1, sn=Math.sin(th);
   const st=state.sheet, puD=st.puT==2?2.5:1.5, cover=5+(st.ins==='pe'?0.3:st.ins==='pu'?puD:st.ins==='sand'?puD+3:0);
   const S=cat=>sizeOf?sizeOf(cat):sz[cat];
+  const hTop=parts.reduce((m,x)=>Math.max(m,...x.pts.map(v=>v.y)),0), WI=windInfo(p,hTop), WUP=WI.up;
   const out=[], add=(g,o)=>out.push(Object.assign({g},o));
   const plan=pt=>[pt.x,pt.z];
   const segInt=(a,b,c2,d)=>{ const r=[b[0]-a[0],b[1]-a[1]], s=[d[0]-c2[0],d[1]-c2[1]], den=r[0]*s[1]-r[1]*s[0]; if(Math.abs(den)<1e-9) return null;
@@ -902,7 +916,7 @@ function structCheck(R,parts,p,sz,sizeOf){
     rafs.forEach(r=>{ const h=segInt(a,b,plan(r.pts[0]),plan(r.pts[1])); if(h&&Math.abs(yAt(pu,h.t)-yAt(r,h.u))<0.4) ts.push(h.t); });
     ts.sort((x,y)=>x-y); for(let i=1;i<ts.length;i++){ const L=(ts[i]-ts[i-1])*pu.len; if(L>0.05) purSpan=Math.max(purSpan,L); } });
   rafSpMax=purSpan||p.rafSp;
-  { const s=S('pur'), sp=secProp(s), Lmm=rafSpMax*1000, D=cover+sp.kgm/p.pSp, qDL=(D+ST.LL)*p.pSp*ST.g/1000, qD=D*p.pSp*ST.g/1000, qW=(ST.WIND-0.6*D)*p.pSp*ST.g/1000;
+  { const s=S('pur'), sp=secProp(s), Lmm=rafSpMax*1000, D=cover+sp.kgm/p.pSp, qDL=(D+ST.LL)*p.pSp*ST.g/1000, qD=D*p.pSp*ST.g/1000, qW=(WUP-0.6*D)*p.pSp*ST.g/1000;
     const Fb=0.6*ST.Fy, Mx=qDL*c*Lmm*Lmm/8, My=qDL*sn*Lmm*Lmm/8;
     const rB=Mx/(sp.Sx*Fb)+My/(sp.Sy*Fb), rW=qW>0?(qW*Lmm*Lmm/8)/(sp.Sx*Fb*4/3):0, d=5*qDL*c*Lmm**4/(384*ST.E*sp.Iex), rD=d/(Lmm/ST.dRatio.pur);
     add('pur',{name:'แป',size:s,span:rafSpMax,ratio:Math.max(rB,rW,rD),note:`ช่วงแป ${fmt(rafSpMax)} ม. (ระยะจันทัน) · ดัด ${fmt(rB*100,0)}% · ลมยก ${fmt(rW*100,0)}% · แอ่น ${fmt(d,1)} มม. (${fmt(rD*100,0)}%)`}); }
@@ -924,7 +938,7 @@ function structCheck(R,parts,p,sz,sizeOf){
       sups.forEach(sp0=>{ if(!sp0.m) return; const i=ts.findIndex(t=>Math.abs(t-sp0.t)<0.011); const left=i>0?(ts[i]-ts[i-1])*Ls/2:ts[0]*Ls, right=i<ts.length-1?(ts[i+1]-ts[i])*Ls/2:(1-ts[ts.length-1])*Ls;
         const arr=loadsOn.get(sp0.m)||[]; arr.push({u:sp0.u,trib:left+right}); loadsOn.set(sp0.m,arr); }); });
     if(!worst) return;
-    const s=S(g), sp=secProp(s), D=cover+S('pur').kg/6/p.pSp+sp.kgm/rafSpMax, q=(D+ST.LL)*rafSpMax*ST.g/1000*c, qW=(ST.WIND-0.6*D)*rafSpMax*ST.g/1000, Fb=0.6*ST.Fy;
+    const s=S(g), sp=secProp(s), D=cover+S('pur').kg/6/p.pSp+sp.kgm/rafSpMax, q=(D+ST.LL)*rafSpMax*ST.g/1000*c, qW=(WUP-0.6*D)*rafSpMax*ST.g/1000, Fb=0.6*ST.Fy;
     const L=worst.Lmax*1000, a=worst.cant*1000, M=Math.max(q*L*L/8,q*a*a/2), Mw=Math.max(qW*L*L/8,qW*a*a/2);
     const d=Math.max(5*q*L**4/(384*ST.E*sp.Iex), q*a**4/(8*ST.E*sp.Iex)), dl=Math.max(L/ST.dRatio.raf, 2*a/ST.dRatio.raf, 1);
     const rB=M/(sp.Sx*Fb), rW=Mw>0?Mw/(sp.Sx*Fb*4/3):0, rD=d/dl;
@@ -972,7 +986,7 @@ function structCheck(R,parts,p,sz,sizeOf){
     const half=(arr,v)=>{ const i=arr.indexOf(+v.toFixed(2)); const l=i>0?(arr[i]-arr[i-1])/2:p.ovh, r=i<arr.length-1?(arr[i+1]-arr[i])/2:p.ovh; return l+r; };
     let worst=null; colTops.forEach(q=>{ const A=half(xs,q.x)*half(zs,q.z)/c, P=A*wA, L=q.y*1000*K, F=Fa(sp,L), ratio=Math.max(P/sp.A/F,(L/sp.r)/200); if(!worst||ratio>worst.ratio) worst={ratio,P,h:q.y,A}; });
     add('col',{name:'เสาเหล็ก',size:s,span:worst.h,ratio:worst.ratio,note:`สูง ${fmt(worst.h)} ม. · รับพื้นที่หลังคา ${fmt(worst.A,1)} ตร.ม. ≈ ${fmt(worst.P/ST.g,0)} กก. · ${braced?'มีผนังยึด K=1':'โครงเปิด ไม่มีผนังยึด K=2'}`}); }
-  return out;
+  out.wind=WI; return out;
 }
 // กลุ่ม → ช่องเลือกขนาด
 const STRUCT_SEL={kbrace:'rSize',rpur:'bSize',rbrace:'mSize',pur:'pSize',raf:'rSize',post:'rSize',brace:'rSize',mraf:'mSize',web:'mSize',ridge:'mSize',mrafAx:'mSize',beam:'bSize',bchAx:'bSize',col:'colSize'};
@@ -988,7 +1002,7 @@ function renderStruct(R,parts,p,sz){
   ${res.map(r=>`<tr><td><b>${r.name}</b><br><small style="color:#66718a">${r.note}</small></td><td>${r.size.short}</td><td><b style="color:${col(r.ratio)}">${fmt(r.ratio*100,0)}%</b><br><small>${r.ratio>1?'ไม่ผ่าน':'ผ่าน'}</small></td></tr>`).join('')}
   </tbody></table></div>
   <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="autoSize" ${bad.length?'':'disabled style="opacity:.5"'}>เลือกขนาดเหล็กที่ผ่านให้อัตโนมัติ</button></div>
-  <p class="note" style="margin-top:8px">คิดน้ำหนักแผ่นหลังคาและฉนวนตามที่เลือก + น้ำหนักจร 30 กก./ตร.ม. + ลมยก 50 กก./ตร.ม. · เหล็กกล่อง Fy 245 MPa คิดความหนาจริงจากน้ำหนักต่อเส้น · ใช้ประเมินขนาดเหล็กเบื้องต้นเท่านั้น ไม่ใช่แบบที่วิศวกรรับรอง อาคารที่ต้องขออนุญาตต้องให้วิศวกรโยธาออกแบบและรับรอง</p>`;
+  <p class="note" style="margin-top:8px">คิดน้ำหนักแผ่นหลังคาและฉนวนตามที่เลือก + น้ำหนักจร 30 กก./ตร.ม. + ลมยก ${fmt((res.wind||{}).up||0,0)} กก./ตร.ม. (เขตลมกลุ่ม ${(res.wind||{}).zone||'-'}${(res.wind||{}).assumed?' — ยังไม่ได้เลือกที่ตั้ง':''}, มยผ.1311-50: q·Ce·(CpCg ${WCFG.cpRoof} + CpiCgi ${WCFG.cpi})) · เหล็กกล่อง Fy 245 MPa คิดความหนาจริงจากน้ำหนักต่อเส้น · ใช้ประเมินขนาดเหล็กเบื้องต้นเท่านั้น ไม่ใช่แบบที่วิศวกรรับรอง อาคารที่ต้องขออนุญาตต้องให้วิศวกรโยธาออกแบบและรับรอง</p>`;
   $('autoSize').onclick=()=>autoSize();
 }
 function autoSize(){
@@ -1244,7 +1258,10 @@ function calc(){
   const cat=CATS.find(c=>c.id===sub.cat);
 
   $('selSum').innerHTML = `<b>${cat.name}${cat.subs.length>1?' › '+sub.name:''}</b> · ${fmt(p.W)}×${fmt(p.L)} ม. · ลาด ${fmt(p.slope,0)}° · ${sub.noCol?'ไม่มีเสา':(state.col==='steel'?'เสาเหล็ก '+S(state.colSize).short:'เสาคอนกรีต')}`;
-  $('warns').innerHTML = R.warn.map(w=>`<div class="warn">⚠ ${w}</div>`).join('');
+  const hTopW=parts.reduce((m,x)=>Math.max(m,...x.pts.map(v=>v.y)),0), WIh=windInfo(p,hTopW);
+  if($('windHint')) $('windHint').innerHTML = WIh.assumed ? 'ยังไม่ได้เลือกที่ตั้ง — ใช้ค่าลมกลุ่ม 2 (27 ม./วินาที) ไว้ก่อน' : `จ.${WIh.prov}${WIh.dist?' อ.'+WIh.dist:''} · เขตลมกลุ่ม ${WIh.zone} (มยผ.1311-50) · ความเร็วลม ${WIh.V} ม./วินาที · แรงลมยก ${fmt(WIh.up,0)} กก./ตร.ม.${WIh.note?'<br>'+WIh.note:''}`;
+  const warnL=[...R.warn]; if(WIh.tooHigh) warnL.unshift(`อาคารสูง ${fmt(hTopW,1)} ม. เกิน 12 ม. — แอปนี้ไม่ครอบคลุม ต้องให้วิศวกรออกแบบ`);
+  $('warns').innerHTML = warnL.map(w=>`<div class="warn">⚠ ${w}</div>`).join('');
   $('kpis').innerHTML = kpi(fmt(roofArea,1)+' ตร.ม.','พื้นที่แผ่นหลังคา (รวมชายคา)')
     + kpi(totBars+' เส้น','เหล็กกล่องทั้งหมด (6 ม.)') + kpi(fmt(totKg,1)+' กก.','น้ำหนักเหล็กรวม')
     + (sub.noCol?'':kpi(nCols+' ต้น', state.col==='steel'?'เสาเหล็ก':'เสาคอนกรีต'))
@@ -1674,10 +1691,18 @@ function nearestAdmin(lat,lon){ // หา อำเภอ/ตำบล ที่
   const dc= best && best.d<15 ? best.dc : bd.dc; const d=GEO.d.find(x=>x[0]===dc);
   return {pc:d[1], dc, tn: best && best.dc===dc ? best.tn : null};
 }
+function fillW(){ const L=state.loc||{}; $('wProv').innerHTML=opt('','— เลือกจังหวัด —')+GEO.p.map(([c,n])=>opt(c,n)).join(''); $('wProv').value=L.pc||'';
+  const ds=GEO.d.filter(d=>d[1]===L.pc).sort((a,b)=>a[2].localeCompare(b[2],'th')); $('wDist').innerHTML=opt('',L.pc?'— เลือกอำเภอ —':'— เลือกจังหวัดก่อน —')+ds.map(d=>opt(d[0],d[2])).join(''); $('wDist').value=L.dc||''; }
+function setLoc(pc,dc,fromOrder){ state.loc={pc:pc||'',dc:dc||''}; fillW();
+  if(!fromOrder&&$('oProv')){ $('oProv').value=state.loc.pc; fillDist(); $('oDist').value=state.loc.dc; fillTam(); showRoute(); }
+  if(state.sub) calc(); }
+function syncLocFromOrder(){ setLoc($('oProv').value,$('oDist').value,true); }
 function initOrder(){
-  if(!GEO) return; fillProv();
-  $('oProv').onchange=()=>{ order.gps=null; $('oGpsMsg').textContent=''; fillDist(); showRoute(); };
-  $('oDist').onchange=()=>{ order.gps=null; $('oGpsMsg').textContent=''; fillTam(); showRoute(); };
+  if(!GEO) return; fillProv(); fillW();
+  $('wProv').onchange=()=>setLoc($('wProv').value,'');
+  $('wDist').onchange=()=>setLoc($('wProv').value,$('wDist').value);
+  $('oProv').onchange=()=>{ order.gps=null; $('oGpsMsg').textContent=''; fillDist(); showRoute(); syncLocFromOrder(); };
+  $('oDist').onchange=()=>{ order.gps=null; $('oGpsMsg').textContent=''; fillTam(); showRoute(); syncLocFromOrder(); };
   $('oTam').onchange=()=>{ order.gps=null; $('oGpsMsg').textContent=''; showRoute(); };
   $('wantSeg').querySelectorAll('button').forEach(b=>b.onclick=()=>{ $('wantSeg').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); order.want=b.dataset.v; });
   $('oGps').onclick=()=>{
@@ -1685,7 +1710,7 @@ function initOrder(){
     if(!navigator.geolocation){ msg.textContent='อุปกรณ์นี้ใช้ตำแหน่งไม่ได้ กรุณาเลือกจังหวัด/อำเภอ'; return; }
     navigator.geolocation.getCurrentPosition(pos=>{
       const lat=pos.coords.latitude, lon=pos.coords.longitude, a=nearestAdmin(lat,lon);
-      $('oProv').value=a.pc; fillDist(); $('oDist').value=a.dc; fillTam();
+      $('oProv').value=a.pc; fillDist(); $('oDist').value=a.dc; fillTam(); syncLocFromOrder();
       if(a.tn){ const ts=GEO.t.filter(t=>t[0]===a.dc).sort((x,y)=>x[1].localeCompare(y[1],'th')); const i=ts.findIndex(t=>t[1]===a.tn); if(i>=0) $('oTam').value=i; }
       order.gps={lat,lon,acc:pos.coords.accuracy}; msg.textContent=`ได้ตำแหน่งแล้ว (แม่นยำประมาณ ${fmt(pos.coords.accuracy,0)} ม.) ตรวจจังหวัด/อำเภอด้านล่างอีกครั้ง`; showRoute();
     }, ()=>{ msg.textContent='ใช้ตำแหน่งไม่ได้ (ไม่ได้อนุญาต หรือหน้านี้ไม่รองรับ) กรุณาเลือกจังหวัด/อำเภอ'; }, {enableHighAccuracy:true,timeout:12000});
