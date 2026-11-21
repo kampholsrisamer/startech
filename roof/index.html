@@ -1020,14 +1020,115 @@ function renderStruct(R,parts,p,sz){
   <div class="tw" style="margin-top:8px"><table id="structTbl"><thead><tr><th>ชิ้นส่วน</th><th>ขนาด</th><th>ใช้กำลัง</th></tr></thead><tbody>
   ${res.map(r=>`<tr><td><b>${r.name}</b><br><small style="color:#66718a">${r.note}</small></td><td>${r.size.short}</td><td><b style="color:${col(r.ratio)}">${fmt(r.ratio*100,0)}%</b><br><small>${r.ratio>1?'ไม่ผ่าน':'ผ่าน'}</small></td></tr>`).join('')}
   </tbody></table></div>
-  <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="autoSize" ${bad.length?'':'disabled style="opacity:.5"'}>เลือกขนาดเหล็กที่ผ่านให้อัตโนมัติ</button><button class="btn" id="calcRep" style="background:#f2b705;color:#1b2d5b">ออกรายการคำนวณ (PDF)</button></div>
+  <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="autoSize" ${bad.length?'':'disabled style="opacity:.5"'}>เลือกขนาดเหล็กที่ผ่านให้อัตโนมัติ</button><button class="btn" id="calcRep" style="background:#f2b705;color:#1b2d5b">ออกรายการคำนวณ (PDF)</button><button class="btn" id="dwgRep" style="background:#2f6fb5">ออกแบบโครงสร้าง (PDF)</button></div>
   <p class="note" style="margin-top:8px">คิดน้ำหนักแผ่นหลังคาและฉนวนตามที่เลือก + น้ำหนักจร 30 กก./ตร.ม. (หรือคนเดิน 100 กก. กลางช่วงแป) + ลมยก ${fmt((res.wind||{}).up||0,0)} กก./ตร.ม. (เขตลมกลุ่ม ${(res.wind||{}).zone||'-'}${(res.wind||{}).assumed?' — ยังไม่ได้เลือกที่ตั้ง':''}, มยผ.1311-50: q·Ce·(CpCg ${WCFG.cpRoof} + CpiCgi ${WCFG.cpi})) · เหล็กกล่อง Fy 245 MPa คิดความหนาจริงจากน้ำหนักต่อเส้น · ใช้ประเมินขนาดเหล็กเบื้องต้นเท่านั้น ไม่ใช่แบบที่วิศวกรรับรอง อาคารที่ต้องขออนุญาตต้องให้วิศวกรโยธาออกแบบและรับรอง</p>`;
   const wi=res.wind||{}; box.insertAdjacentHTML('afterbegin',`<div class="grid2" style="margin-bottom:8px"><div><label>เขตลม (เฉพาะสาขา)</label><select id="windZSel">${[['','ตามที่ตั้ง (กลุ่ม '+(wi.autoZone||'-')+')'],['1','กลุ่ม 1 · 25 ม./วินาที'],['2','กลุ่ม 2 · 27 ม./วินาที'],['3','กลุ่ม 3 · 29 ม./วินาที'],['4B','กลุ่ม 4B · 27 ม./วินาที'],['4A','กลุ่ม 4A · 30 ม./วินาที']].map(([v,t])=>`<option value="${v}" ${v===(state.windZ||'')?'selected':''}>${t}</option>`).join('')}</select></div></div>${wi.ovr?`<div class="${wi.lower?'warn':'info'}" style="margin-bottom:8px">${wi.lower?'⚠ ':''}สาขาเปลี่ยนเขตลมเป็นกลุ่ม ${wi.ovr} (ตามตารางคือกลุ่ม ${wi.autoZone})${wi.lower?' — ต่ำกว่าตาราง ต้องมีเหตุผลหรือเอกสารวิศวกรประกอบ':''}</div>`:''}`);
   $('windZSel').onchange=e=>{ state.windZ=e.target.value; calc(); };
   $('autoSize').onclick=()=>autoSize();
   $('calcRep').onclick=()=>calcReport();
+  $('dwgRep').onclick=()=>dwgReport();
 }
 const STD_SZ={pSize:'2x1_12',rSize:'3x15_12',mSize:'4x2_12',bSize:'4x2_12',colSize:'4x4_15'};
+function dwgReport(){
+  const sub=SUB(state.sub), cat=CATS.find(c=>c.id===sub.cat), p=cleanP(), R=build(state.sub,p), {parts}=expand(R,p), sz=sizes();
+  const res=structCheck(R,parts,p,sz), W=res.wind||{}, now=new Date(), d2=n=>String(n).padStart(2,'0');
+  const esc=t=>String(t==null?'':t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const thDate=`${now.getDate()} ${['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'][now.getMonth()]} ${now.getFullYear()+543}`;
+  const docNo=`STS-DWG-${now.getFullYear()}${d2(now.getMonth()+1)}${d2(now.getDate())}-${Math.random().toString(36).slice(2,6).toUpperCase()}`;
+  const cust=($('oName')&&$('oName').value.trim())||'', loc=W.assumed?'':`จ.${W.prov}${W.dist?' อ.'+W.dist:''}`;
+  const ST_={col:['#1b2d5b',3.2],beam:['#1b2d5b',2.4],plate:['#1b2d5b',2.4],bch:['#1b2d5b',2.4],mraf:['#b8860b',2.2],web:['#b8860b',1.6],king:['#b8860b',1.8],rbrace:['#d2691e',1.5],kbrace:['#d2691e',1.5],brace:['#d2691e',1.6],arm:['#d2691e',1.6],knee:['#d2691e',1.4],post:['#b8860b',1.4],
+    ridge:['#c62828',2.2],hip:['#c62828',2.0],valley:['#c62828',2.0],raf:['#2f6fb5',1.3],dorm:['#2f6fb5',1.3],rpur:['#1b2d5b',1.8],pur:['#9aa7c0',0.7]};
+  const sty=c=>ST_[c]||['#555',1];
+  const segs=parts.filter(x=>x.pts&&x.pts.length>=2);
+  const view=(proj,filter,{w=760,h=420,dims=null,labels=null,ground=null,cols=false,mh=128}={})=>{ const opts_mh=mh;
+    const ss=segs.filter(filter); if(!ss.length) return '';
+    const P=ss.flatMap(s=>s.pts.map(proj)); let x0=Math.min(...P.map(q=>q[0])),x1=Math.max(...P.map(q=>q[0])),y0=Math.min(...P.map(q=>q[1])),y1=Math.max(...P.map(q=>q[1]));
+    if(ground!=null){ y0=Math.min(y0,ground); }
+    const pad=60, k=Math.min((w-2*pad)/Math.max(0.1,x1-x0),(h-2*pad)/Math.max(0.1,y1-y0)), X=v=>pad+(v-x0)*k, Y=v=>h-pad-(v-y0)*k;
+    const order=['pur','raf','dorm','rpur','kbrace','rbrace','brace','arm','knee','post','web','king','mraf','bch','plate','beam','valley','hip','ridge','col'];
+    const srt=[...ss].sort((a,b)=>order.indexOf(a.cat)-order.indexOf(b.cat));
+    let g=srt.map(s=>{ const [c,lw]=sty(s.cat), q=s.pts.map(proj); return `<polyline points="${q.map(v=>X(v[0]).toFixed(1)+','+Y(v[1]).toFixed(1)).join(' ')}" fill="none" stroke="${c}" stroke-width="${lw}" stroke-linecap="round"/>`; }).join('');
+    if(ground!=null) g=`<line x1="${pad-20}" y1="${Y(ground)}" x2="${w-pad+20}" y2="${Y(ground)}" stroke="#666" stroke-width="1" stroke-dasharray="6 3"/>`+g;
+    if(cols){ segs.filter(s=>s.cat==='col').forEach(s=>{ const q=proj(s.pts[0]); g+=`<rect x="${X(q[0])-4}" y="${Y(q[1])-4}" width="8" height="8" fill="#1b2d5b"/>`; }); }
+    if(dims) dims.forEach(dm=>{ // {axis:'x'|'y', vals:[...], at:value, side}
+      const vs=[...new Set(dm.vals.map(v=>+v.toFixed(3)))].sort((a,b)=>a-b); if(vs.length<2) return;
+      if(dm.axis==='x'){ const yy=dm.off; g+=vs.map(v=>`<line x1="${X(v)}" y1="${yy-5}" x2="${X(v)}" y2="${yy+5}" stroke="#333"/>`).join('')+`<line x1="${X(vs[0])}" y1="${yy}" x2="${X(vs[vs.length-1])}" y2="${yy}" stroke="#333" stroke-width=".8"/>`;
+        for(let i=0;i<vs.length-1;i++){ const L=vs[i+1]-vs[i]; if(L>0.05) g+=`<text x="${(X(vs[i])+X(vs[i+1]))/2}" y="${yy-4}" font-size="10" text-anchor="middle">${fmt(L,2)}</text>`; }
+        if(dm.label) g+=`<text x="${(X(vs[0])+X(vs[vs.length-1]))/2}" y="${yy+(dm.down?14:-16)}" font-size="11" font-weight="700" text-anchor="middle">${dm.label}</text>`; }
+      else { const xx=dm.off; g+=vs.map(v=>`<line x1="${xx-5}" y1="${Y(v)}" x2="${xx+5}" y2="${Y(v)}" stroke="#333"/>`).join('')+`<line x1="${xx}" y1="${Y(vs[0])}" x2="${xx}" y2="${Y(vs[vs.length-1])}" stroke="#333" stroke-width=".8"/>`;
+        for(let i=0;i<vs.length-1;i++){ const L=vs[i+1]-vs[i]; if(L>0.05){ const ym=(Y(vs[i])+Y(vs[i+1]))/2; g+=`<text x="${xx-4}" y="${ym}" font-size="10" text-anchor="end" transform="rotate(-90 ${xx-4} ${ym})">${fmt(L,2)}</text>`; } } } });
+    if(labels) labels.forEach(l=>{ g+=`<text x="${X(l[0])}" y="${Y(l[1])}" font-size="${l[3]||10}" text-anchor="middle" fill="${l[4]||'#1b2d5b'}" font-weight="${l[5]||400}">${esc(l[2])}</text>`; });
+    return {svg:`<svg viewBox="0 0 ${w} ${h}" style="background:#fff;width:100%;height:auto;max-height:${opts_mh}mm;display:block;margin:0 auto">${g}</svg>`, X, Y, k, x0, x1, y0, y1, pad, w, h};
+  };
+  // ---- 1) ผังเสา / ผังหลังคา ----
+  const colB=segs.filter(s=>s.cat==='col').map(s=>s.pts[0]);
+  const xsC=[...new Set(colB.map(v=>+v.x.toFixed(3)))].sort((a,b)=>a-b), zsC=[...new Set(colB.map(v=>+v.z.toFixed(3)))].sort((a,b)=>a-b);
+  const allX=segs.flatMap(s=>s.pts.map(v=>v.x)), allZ=segs.flatMap(s=>s.pts.map(v=>v.z)), xmin=Math.min(...allX), xmax=Math.max(...allX), zmin=Math.min(...allZ), zmax=Math.max(...allZ);
+  const planPre=view(v=>[v.x,-v.z],()=>true,{h:560});
+  let plan='';
+  if(planPre){ const V=planPre; const yTop=V.pad-30, xLeft=V.pad-30;
+    const pv=view(v=>[v.x,-v.z],()=>true,{h:560,cols:true,dims:[{axis:'x',vals:xsC.length>1?xsC:[xmin,xmax],off:yTop,label:'ระยะเสา (ม.)'},{axis:'x',vals:[xmin,xmax],off:V.h-V.pad+30,label:`ยาวรวม ${fmt(xmax-xmin,2)} ม. (รวมชายคา)`,down:true},{axis:'y',vals:(zsC.length>1?zsC:[zmin,zmax]).map(z=>-z),off:xLeft}],
+      labels:[...xsC.map((x,i)=>[x,-zmin+(-0.0), String(i+1), 12,'#c62828',700]), ...zsC.map((z,i)=>[xmin-0.0,-z,String.fromCharCode(65+i),12,'#c62828',700])]});
+    plan=pv.svg; }
+  // ---- 2) รูปด้าน ----
+  const yAll=segs.flatMap(s=>s.pts.map(v=>v.y)), ytop=Math.max(...yAll);
+  const front=view(v=>[v.x,v.y],()=>true,{h:380,mh:115,ground:0,dims:[{axis:'x',vals:xsC.length>1?xsC:[xmin,xmax],off:380-25,down:true}]});
+  const side=view(v=>[v.z,v.y],()=>true,{h:380,mh:115,ground:0,dims:[{axis:'x',vals:zsC.length>1?zsC:[zmin,zmax],off:380-25,down:true},{axis:'y',vals:[0,p.H,ytop],off:30}]});
+  // ---- 3) แบบขยายโครงถัก (แนวเสากลาง) ----
+  let truss='', trussNote='';
+  const fr=(R.frames||(R._grid&&R._grid.xs)||[]).filter(x=>x>xmin+0.01&&x<xmax-0.01);
+  if(fr.length){ const xf=fr[Math.floor(fr.length/2)], on=s=>s.pts.every(v=>Math.abs(v.x-xf)<0.03)&&s.cat!=='pur';
+    const ts=segs.filter(on); if(ts.some(s=>['mraf','web','king','raf'].includes(s.cat))){
+      const lab=[]; const seen=new Set(); ts.forEach(s=>{ if(!['mraf','web','king','bch','beam','col','rbrace','kbrace','post','raf'].includes(s.cat)) return; const key=s.cat; if(seen.has(key)) return; seen.add(key);
+        const a=s.pts[0], b=s.pts[s.pts.length-1]; lab.push([(a.z+b.z)/2,(a.y+b.y)/2+0.12,(sz[s.cat]||{}).short||'',9,'#333']); });
+      const zz=[...new Set(ts.flatMap(s=>s.pts.map(v=>+v.z.toFixed(3))))].sort((a,b)=>a-b);
+      const tv=view(v=>[v.z,v.y],on,{h:420,ground:0,labels:lab,dims:[{axis:'x',vals:[zz[0],zz[zz.length-1]],off:420-25,down:true,label:''},{axis:'y',vals:[0,p.H,Math.max(...ts.flatMap(s=>s.pts.map(v=>v.y)))],off:30}]});
+      truss=tv.svg; trussNote=`โครงถักแนวเสาที่ x = ${fmt(xf-xmin,2)} ม. (ตัวอย่าง 1 ชุด · โครงถักทุกแนวเสาเหมือนกัน)`; } }
+  // ---- 4) ตารางชิ้นส่วน ----
+  const groups={}; parts.forEach(x=>{ if(x.cat==='col'&&state.col!=='steel') return; const s=sz[x.cat]; if(!s) return; (groups[x.cat]=groups[x.cat]||{cat:x.cat,s,pcs:[]}).pcs.push(x.len); });
+  const sched=ORDER.filter(c=>groups[c]).map(c=>{ const g=groups[c], L=g.pcs.reduce((a,b)=>a+b,0), bars=barsNeeded(g.pcs); return `<tr><td>${esc(CATNAME[c]||c)}</td><td>${esc(g.s.short)}</td><td class="c">${g.pcs.length}</td><td class="c">${fmt(Math.max(...g.pcs),2)}</td><td class="c">${fmt(L,1)}</td><td class="c">${bars}</td><td class="c">${fmt(bars*g.s.kg,0)}</td></tr>`; }).join('');
+  const nCol=parts.filter(x=>x.cat==='col').length;
+  // ---- 5) แบบขยายมาตรฐาน ----
+  const det=`<svg viewBox="0 0 760 330" style="background:#fff;width:100%;max-height:78mm">
+  <text x="190" y="18" font-size="13" font-weight="700" text-anchor="middle">ฐานเสา – แปลน</text>
+  <rect x="90" y="40" width="200" height="200" fill="#eef2fa" stroke="#1b2d5b" stroke-width="2"/><rect x="140" y="90" width="100" height="100" fill="#fff" stroke="#1b2d5b" stroke-width="3"/>
+  ${[[115,65],[265,65],[115,215],[265,215]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r="7" fill="#fff" stroke="#c62828" stroke-width="2"/>`).join('')}
+  <text x="190" y="144" font-size="11" text-anchor="middle">เสา ${esc((sz.col||{}).short||'4×4"')}</text><text x="190" y="258" font-size="11" text-anchor="middle">แผ่นเหล็ก 200×200 หนา 6 มม.</text><text x="190" y="274" font-size="11" text-anchor="middle" fill="#c62828">พุก M12 × 4 ตัว ห่างขอบ 25 มม.</text>
+  <text x="560" y="18" font-size="13" font-weight="700" text-anchor="middle">ฐานเสา – รูปตัด</text>
+  <rect x="460" y="40" width="40" height="120" fill="#fff" stroke="#1b2d5b" stroke-width="3"/><rect x="440" y="160" width="80" height="8" fill="#1b2d5b"/>
+  <rect x="400" y="168" width="160" height="120" fill="#e8e8e8" stroke="#555"/><line x1="452" y1="160" x2="452" y2="215" stroke="#c62828" stroke-width="3"/><line x1="508" y1="160" x2="508" y2="215" stroke="#c62828" stroke-width="3"/>
+  <rect x="395" y="288" width="170" height="14" fill="#f4e3b5" stroke="#b8860b"/><line x1="350" y1="200" x2="610" y2="200" stroke="#6b8e23" stroke-dasharray="6 3"/>
+  <text x="580" y="196" font-size="10" fill="#6b8e23">ระดับดิน</text><text x="575" y="235" font-size="11">ม่อคอนกรีต 400×400×400 มม.</text><text x="575" y="251" font-size="11">ฝังลึก ≥ 500 มม.</text><text x="575" y="299" font-size="11">ทรายอัดแน่น</text><text x="575" y="219" font-size="11" fill="#c62828">พุกฝังลึก ≥ 100 มม.</text>
+  </svg>`;
+  const det2=`<svg viewBox="0 0 760 200" style="background:#fff;width:100%;max-height:50mm">
+  <text x="190" y="18" font-size="13" font-weight="700" text-anchor="middle">จุดยึดแป–จันทัน</text>
+  <rect x="60" y="110" width="260" height="34" fill="#eef2fa" stroke="#2f6fb5" stroke-width="2"/><text x="190" y="132" font-size="11" text-anchor="middle">จันทัน ${esc((sz.raf||{}).short||'')}</text>
+  <rect x="160" y="62" width="60" height="48" fill="#fff" stroke="#1b2d5b" stroke-width="2"/><text x="190" y="90" font-size="10" text-anchor="middle">แป ${esc((sz.pur||{}).short||'')}</text>
+  <line x1="157" y1="108" x2="157" y2="70" stroke="#c62828" stroke-width="5"/><line x1="223" y1="108" x2="223" y2="70" stroke="#c62828" stroke-width="5"/><text x="190" y="170" font-size="11" text-anchor="middle" fill="#c62828">เชื่อม 2 ด้าน ด้านละ ≥ 30–40 มม.</text>
+  <text x="560" y="18" font-size="13" font-weight="700" text-anchor="middle">สกรูยึดแผ่นหลังคา</text>
+  <rect x="430" y="40" width="260" height="130" fill="#f7f9fd" stroke="#1b2d5b"/><rect x="430" y="40" width="260" height="26" fill="#fde7e7"/><rect x="430" y="144" width="260" height="26" fill="#fde7e7"/><rect x="430" y="40" width="26" height="130" fill="#fde7e7"/><rect x="664" y="40" width="26" height="130" fill="#fde7e7"/>
+  <text x="560" y="110" font-size="11" text-anchor="middle">กลางหลังคา 4–5 ตัว/ตร.ม.</text><text x="560" y="58" font-size="10" text-anchor="middle" fill="#c62828">ขอบ–มุม (≥ 1 ม.) 6–8 ตัว/ตร.ม.</text><text x="560" y="188" font-size="10" text-anchor="middle">ยึดทุกลอนที่วางบนแป</text>
+  </svg>`;
+  const legend=[['col','เสา'],['beam','คานหัวเสา/ขื่อ'],['mraf','โครงถักหลัก'],['raf','จันทัน'],['rpur','แปรองจันทัน'],['ridge','อกไก่/ตะเฆ่'],['kbrace','ค้ำ'],['pur','แป']].filter(([c])=>parts.some(x=>x.cat===c||(c==='ridge'&&['hip','valley'].includes(x.cat))||(c==='kbrace'&&['rbrace','brace'].includes(x.cat))))
+    .map(([c,n])=>`<span style="display:inline-flex;align-items:center;gap:4px;margin-right:12px"><i style="display:inline-block;width:22px;height:${Math.max(2,sty(c)[1])}px;background:${sty(c)[0]}"></i>${n}${sz[c]?' '+esc(sz[c].short):''}</span>`).join('');
+  let sheet=0; const tb=t=>{ sheet++; return `<div class="tb"><div><b>StarTechSteel · สตาร์เทคสตีล</b><br>${esc(cat.name)}${cat.subs.length>1?' › '+esc(sub.name):''} · ${fmt(p.W)}×${fmt(p.L)} ม.<br>${esc(cust)||'ผู้ว่าจ้าง ........................'} · ${esc(loc)||'ที่ตั้ง ........................'}</div><div><b>${t}</b><br>แผ่นที่ ${sheet}/5 · ไม่ได้มาตราส่วน ระยะเป็นเมตร</div><div>${docNo}<br>${thDate}<br>วิศวกร ................ กว. ..........</div></div>`; };
+  const html=`<!DOCTYPE html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${docNo} แบบโครงสร้างหลังคา</title>
+<style>@page{size:A4 landscape;margin:10mm}body{font-family:'Sarabun','Noto Sans Thai',Tahoma,sans-serif;color:#1b2d5b;font-size:12px;max-width:1060px;margin:0 auto;padding:10px}
+.pg{border:1.5px solid #1b2d5b;padding:10px 12px;margin-bottom:14px;break-after:page;page-break-after:always}h2{font-size:15px;margin:0 0 6px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #c9d3e6;padding:3px 6px;text-align:left}th{background:#eef2fa}.c{text-align:center}
+.tb{display:grid;grid-template-columns:2fr 1.2fr 1.2fr;gap:8px;border-top:2px solid #1b2d5b;margin-top:8px;padding-top:6px;font-size:11px}.lg{font-size:11px;margin:4px 0}.n{color:#5a6785;font-size:11px}
+.pb{position:fixed;right:14px;bottom:14px;background:#1b2d5b;color:#fff;border:0;border-radius:24px;padding:12px 20px;font-size:15px}@media print{.pb{display:none}.pg{margin:0}}</style></head><body>
+<button class="pb" onclick="print()">พิมพ์ / บันทึก PDF</button>
+<div class="pg"><h2>S-1 ผังเสาและผังโครงหลังคา</h2><div class="lg">${legend}</div>${plan}<div class="n">■ ตำแหน่งเสา ${nCol} ต้น · แนวเสา 1–${xsC.length} / ${zsC.map((z,i)=>String.fromCharCode(65+i)).join(', ')}</div>${tb('ผังเสาและผังโครงหลังคา')}</div>
+<div class="pg"><h2>S-2 รูปด้าน</h2><div class="lg">${legend}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div><b>รูปด้านยาว</b>${front.svg||''}</div><div><b>รูปด้านสกัด</b>${side.svg||''}</div></div><div class="n">สูงเสา ${fmt(p.H)} ม. · สูงสุด ${fmt(ytop,2)} ม. · ลาด ${fmt(p.slope,0)}°</div>${tb('รูปด้าน')}</div>
+<div class="pg"><h2>S-3 แบบขยายโครงถัก</h2>${truss||'<p>รูปแบบนี้ไม่มีโครงถักจั่ว</p>'}<div class="n">${trussNote}</div>${tb('แบบขยายโครงถัก')}</div>
+<div class="pg"><h2>S-4 ตารางชิ้นส่วนเหล็ก</h2><table><tr><th>ชิ้นส่วน</th><th>ขนาด</th><th class="c">จำนวนชิ้น</th><th class="c">ยาวสุด (ม.)</th><th class="c">ยาวรวม (ม.)</th><th class="c">เหล็ก (เส้น 6 ม.)</th><th class="c">น้ำหนัก (กก.)</th></tr>${sched}</table>
+<div class="n" style="margin-top:6px">เหล็กกล่องขึ้นรูปเย็น Fy ≥ 245 MPa · ทาสีกันสนิมทุกชิ้นก่อนประกอบ · ตรวจผลการคำนวณในรายการคำนวณประกอบแบบ</div>${tb('ตารางชิ้นส่วนเหล็ก')}</div>
+<div class="pg"><h2>S-5 แบบขยายมาตรฐาน</h2>${det}${det2}<div class="n">ดินอ่อนใช้เสาเข็มสั้น 4" ยาว 1.0–1.5 ม. 4 ต้นต่อม่อ · ค้ำทแยงขนาดไม่เล็กกว่าชิ้นที่ค้ำ มุม 45°–60° · ยึดกับอาคารเดิมด้วยพุกเคมี M12–M16 ทุก 1.0–1.5 ม. รับเฉพาะแรงลม</div>${tb('แบบขยายมาตรฐาน')}</div>
+</body></html>`;
+  const url=URL.createObjectURL(new Blob([html],{type:'text/html'})), w=window.open(url,'_blank');
+  if(!w){ const a=document.createElement('a'); a.href=url; a.download=docNo+'.html'; document.body.appendChild(a); a.click(); a.remove(); }
+}
+
 function calcReport(){
   const sub=SUB(state.sub), cat=CATS.find(c=>c.id===sub.cat), p=cleanP(), R=build(state.sub,p), {parts}=expand(R,p), sz=sizes();
   const res=structCheck(R,parts,p,sz), W=res.wind||{}, st=state.sheet, now=new Date();
