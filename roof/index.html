@@ -1020,13 +1020,82 @@ function renderStruct(R,parts,p,sz){
   <div class="tw" style="margin-top:8px"><table id="structTbl"><thead><tr><th>ชิ้นส่วน</th><th>ขนาด</th><th>ใช้กำลัง</th></tr></thead><tbody>
   ${res.map(r=>`<tr><td><b>${r.name}</b><br><small style="color:#66718a">${r.note}</small></td><td>${r.size.short}</td><td><b style="color:${col(r.ratio)}">${fmt(r.ratio*100,0)}%</b><br><small>${r.ratio>1?'ไม่ผ่าน':'ผ่าน'}</small></td></tr>`).join('')}
   </tbody></table></div>
-  <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="autoSize" ${bad.length?'':'disabled style="opacity:.5"'}>เลือกขนาดเหล็กที่ผ่านให้อัตโนมัติ</button></div>
+  <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="autoSize" ${bad.length?'':'disabled style="opacity:.5"'}>เลือกขนาดเหล็กที่ผ่านให้อัตโนมัติ</button><button class="btn" id="calcRep" style="background:#f2b705;color:#1b2d5b">ออกรายการคำนวณ (PDF)</button></div>
   <p class="note" style="margin-top:8px">คิดน้ำหนักแผ่นหลังคาและฉนวนตามที่เลือก + น้ำหนักจร 30 กก./ตร.ม. (หรือคนเดิน 100 กก. กลางช่วงแป) + ลมยก ${fmt((res.wind||{}).up||0,0)} กก./ตร.ม. (เขตลมกลุ่ม ${(res.wind||{}).zone||'-'}${(res.wind||{}).assumed?' — ยังไม่ได้เลือกที่ตั้ง':''}, มยผ.1311-50: q·Ce·(CpCg ${WCFG.cpRoof} + CpiCgi ${WCFG.cpi})) · เหล็กกล่อง Fy 245 MPa คิดความหนาจริงจากน้ำหนักต่อเส้น · ใช้ประเมินขนาดเหล็กเบื้องต้นเท่านั้น ไม่ใช่แบบที่วิศวกรรับรอง อาคารที่ต้องขออนุญาตต้องให้วิศวกรโยธาออกแบบและรับรอง</p>`;
   const wi=res.wind||{}; box.insertAdjacentHTML('afterbegin',`<div class="grid2" style="margin-bottom:8px"><div><label>เขตลม (เฉพาะสาขา)</label><select id="windZSel">${[['','ตามที่ตั้ง (กลุ่ม '+(wi.autoZone||'-')+')'],['1','กลุ่ม 1 · 25 ม./วินาที'],['2','กลุ่ม 2 · 27 ม./วินาที'],['3','กลุ่ม 3 · 29 ม./วินาที'],['4B','กลุ่ม 4B · 27 ม./วินาที'],['4A','กลุ่ม 4A · 30 ม./วินาที']].map(([v,t])=>`<option value="${v}" ${v===(state.windZ||'')?'selected':''}>${t}</option>`).join('')}</select></div></div>${wi.ovr?`<div class="${wi.lower?'warn':'info'}" style="margin-bottom:8px">${wi.lower?'⚠ ':''}สาขาเปลี่ยนเขตลมเป็นกลุ่ม ${wi.ovr} (ตามตารางคือกลุ่ม ${wi.autoZone})${wi.lower?' — ต่ำกว่าตาราง ต้องมีเหตุผลหรือเอกสารวิศวกรประกอบ':''}</div>`:''}`);
   $('windZSel').onchange=e=>{ state.windZ=e.target.value; calc(); };
   $('autoSize').onclick=()=>autoSize();
+  $('calcRep').onclick=()=>calcReport();
 }
 const STD_SZ={pSize:'2x1_12',rSize:'3x15_12',mSize:'4x2_12',bSize:'4x2_12',colSize:'4x4_15'};
+function calcReport(){
+  const sub=SUB(state.sub), cat=CATS.find(c=>c.id===sub.cat), p=cleanP(), R=build(state.sub,p), {parts}=expand(R,p), sz=sizes();
+  const res=structCheck(R,parts,p,sz), W=res.wind||{}, st=state.sheet, now=new Date();
+  const esc=t=>String(t==null?'':t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const d2=n=>String(n).padStart(2,'0'), thDate=`${now.getDate()} ${['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'][now.getMonth()]} ${now.getFullYear()+543}`;
+  const docNo=`STS-CALC-${now.getFullYear()}${d2(now.getMonth()+1)}${d2(now.getDate())}-${Math.random().toString(36).slice(2,6).toUpperCase()}`;
+  // ภาพโครงเหล็ก
+  let img=''; try{ const pv=state.view; state.view='frame'; calc(); render(MAIN); const cv=$('view'), c2=document.createElement('canvas'); c2.width=cv.width; c2.height=cv.height; const g2=c2.getContext('2d'); g2.fillStyle='#fff'; g2.fillRect(0,0,c2.width,c2.height); g2.drawImage(cv,0,0); img=c2.toDataURL('image/jpeg',0.85); state.view=pv; calc(); render(MAIN); }catch(e){}
+  const cover=5+(st.ins==='pe'?0.3:st.ins==='pu'?(st.puT==2?2.5:1.5):st.ins==='sand'?(st.puT==2?2.5:1.5)+3:0);
+  const braced=(R.walls||[]).length>0, cust=($('oName')&&$('oName').value.trim())||'', hTop=parts.reduce((m,x)=>Math.max(m,...x.pts.map(v=>v.y)),0);
+  const used=[...new Map(res.map(r=>[r.size.id,r.size])).values()];
+  const rows=res.map((r,i)=>`<tr><td>${i+1}</td><td><b>${esc(r.name)}</b><div class="n">${esc(r.note)}</div></td><td>${esc(r.size.short)}</td><td class="c" style="color:${r.ratio>1?'#c62828':r.ratio>0.85?'#b26a00':'#2e7d32'}"><b>${fmt(r.ratio*100,0)}%</b></td><td class="c">${r.ratio>1?'ไม่ผ่าน':'ผ่าน'}</td></tr>`).join('');
+  const bad=res.filter(r=>r.ratio>1);
+  const secRows=used.map(s=>{ const sp=secProp(s); return `<tr><td>${esc(s.name)}</td><td>${fmt(s.kg)}</td><td>${fmt(sp.t,2)}</td><td>${fmt(sp.A,0)}</td><td>${fmt(sp.Ix/1e4,1)}</td><td>${fmt(sp.Iex/1e4,1)}</td><td>${fmt(sp.Sx/1e3,2)}</td><td>${fmt(sp.Q,2)}</td><td>${fmt(sp.r,1)}</td></tr>`; }).join('');
+  const insTxt=st.type==='none'?'ไม่ระบุแผ่นหลังคา (คิดน้ำหนักแผ่น 5 กก./ตร.ม.)':`${SHEETS[st.type].n}${st.ins!=='none'?' + '+INS_LABEL():''}`;
+  const html=`<!DOCTYPE html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${docNo} รายการคำนวณโครงสร้างหลังคา</title>
+<style>@page{size:A4;margin:14mm 12mm}body{font-family:'Sarabun','Noto Sans Thai',Tahoma,sans-serif;color:#1b2d5b;font-size:13px;line-height:1.5;max-width:820px;margin:0 auto;padding:12px}
+h1{font-size:20px;margin:0}h2{font-size:15px;margin:18px 0 6px;border-bottom:2px solid #1b2d5b;padding-bottom:2px}table{width:100%;border-collapse:collapse;margin:4px 0}td,th{border:1px solid #c9d3e6;padding:4px 6px;vertical-align:top;text-align:left}th{background:#eef2fa}
+.c{text-align:center}.n{color:#5a6785;font-size:11.5px}.hd{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;border-bottom:3px solid #f2b705;padding-bottom:8px}.k{color:#5a6785}
+.box{border:1px solid #c9d3e6;border-radius:6px;padding:8px 10px;margin:6px 0}.warn{background:#fff4e5;border-color:#f2b705}.sig{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:10px}.sig div{border:1px solid #c9d3e6;border-radius:6px;padding:10px;min-height:120px}
+.pb{position:fixed;right:14px;bottom:14px;background:#1b2d5b;color:#fff;border:0;border-radius:24px;padding:12px 20px;font-size:15px}@media print{.pb{display:none}h2{break-after:avoid}tr{break-inside:avoid}}img{max-width:100%;border:1px solid #c9d3e6;border-radius:6px}</style></head><body>
+<button class="pb" onclick="print()">พิมพ์ / บันทึก PDF</button>
+<div class="hd"><div><div style="font-weight:800;font-size:16px">StarTechSteel · สตาร์เทคสตีล</div><h1>รายการคำนวณโครงสร้างหลังคาเหล็กกล่อง</h1><div class="k">ประเมินเบื้องต้นด้วยวิธีหน่วยแรงที่ยอมให้ (ASD) · ต้องได้รับการตรวจและรับรองโดยวิศวกรโยธาก่อนใช้งาน</div></div>
+<div style="text-align:right;white-space:nowrap"><div>เลขที่ <b>${docNo}</b></div><div>วันที่ ${thDate}</div></div></div>
+
+<h2>1. ข้อมูลโครงการ</h2><table>
+<tr><th style="width:30%">ผู้ว่าจ้าง</th><td>${esc(cust)||'..................................................'}</td></tr>
+<tr><th>ที่ตั้งโครงการ</th><td>${W.assumed?'..................................................':`จ.${esc(W.prov)}${W.dist?' อ.'+esc(W.dist):''}`}</td></tr>
+<tr><th>รูปแบบหลังคา</th><td>${esc(cat.name)}${cat.subs.length>1?' › '+esc(sub.name):''}</td></tr>
+<tr><th>ขนาด</th><td>กว้าง ${fmt(p.W)} ม. × ยาว ${fmt(p.L)} ม. · สูงเสา ${fmt(p.H)} ม. · สูงสุด ${fmt(hTop,2)} ม. · ลาด ${fmt(p.slope,0)}° · ชายคายื่น ${fmt(p.ovh||0)} ม.</td></tr>
+<tr><th>ระยะโครง</th><td>ระยะเสาไม่เกิน ${fmt(p.colSp)} ม. · ระยะจันทันไม่เกิน ${fmt(p.rafSp)} ม. · ระยะแปไม่เกิน ${fmt(p.pSp)} ม.</td></tr>
+<tr><th>แผ่นหลังคา</th><td>${esc(insTxt)}</td></tr>
+<tr><th>ระบบเสา</th><td>${sub.noCol?'ไม่มีเสา (ยึดผนัง)':state.col==='steel'?`เสาเหล็ก · ${braced?'มีผนังยึด (K = 1)':'โครงเปิด ไม่มีผนังยึด (K = 2)'}`:'เสาคอนกรีต'}</td></tr></table>
+${img?`<div style="margin-top:8px"><img src="${img}" alt="โครงเหล็ก"><div class="n">ภาพโครงเหล็ก 3 มิติจากแอป</div></div>`:''}
+
+<h2>2. วัสดุและคุณสมบัติหน้าตัด</h2>
+<div>เหล็กกล่องขึ้นรูปเย็น Fy = ${ST.Fy} MPa, E = ${fmt(ST.E,0)} MPa · ความหนาคำนวณจากน้ำหนักต่อเส้น 6 ม. (A = (กก./6)/0.00785 มม.², t = A/2(H+B)) · ความกว้างประสิทธิผลตาม AISI</div>
+<table><tr><th>ขนาด</th><th>กก./6 ม.</th><th>t (มม.)</th><th>A (มม.²)</th><th>Ix (ซม.⁴)</th><th>Iₑx (ซม.⁴)</th><th>Sₑx (ซม.³)</th><th>Q</th><th>r (มม.)</th></tr>${secRows}</table>
+
+<h2>3. น้ำหนักบรรทุกและการรวมแรง</h2><table>
+<tr><th style="width:30%">น้ำหนักคงที่ D</th><td>แผ่นหลังคา + ฉนวน ${fmt(cover,1)} กก./ตร.ม. + น้ำหนักแป/จันทัน/โครงถักตามจริง</td></tr>
+<tr><th>น้ำหนักจร L</th><td>${ST.LL} กก./ตร.ม. หรือแรงจุดคนเดิน ${ST.P} กก. กลางช่วงแป (กรณีวิกฤต)</td></tr>
+<tr><th>แรงลม W</th><td>มยผ.1311-50 · เขตลมกลุ่ม ${esc(W.zone)}${W.ovr?` (กำหนดโดยส่วนกลาง; ตามตารางคือกลุ่ม ${esc(W.autoZone)})`:''} · V = ${W.V} ม./วินาที · q = ½ρV² = ${fmt(W.q,1)} กก./ตร.ม. · Ce = ${fmt(W.Ce,2)} (h = ${fmt(W.h,2)} ม.)<br>แรงลมยกหลังคา = q·Ce·(CpCg ${WCFG.cpRoof} + CpiCgi ${WCFG.cpi}) = <b>${fmt(W.up,1)} กก./ตร.ม.</b> · แรงลมด้านข้าง (โครงเปิด) = q·Ce·1.3</td></tr>
+<tr><th>การรวมแรง</th><td>D + L · 0.6D + W (เพิ่มหน่วยแรงที่ยอมให้ 1/3)</td></tr>
+<tr><th>เกณฑ์</th><td>Fb = 0.6Fy · แรงอัดตาม AISC ASD (ลด Fy ด้วย Q) · KL/r ≤ 200 · แอ่นตัว แป/จันทัน L/180, คาน/แปรองจันทัน/อกไก่ L/240${state.col==='steel'&&!braced?' · เสา 4×4 หนา 1.5 โครงเปิดสูงไม่เกิน 3.0 ม. (ตามวิศวกร)':''}</td></tr></table>
+
+<h2>4. ผลการตรวจรายชิ้นส่วน</h2>
+<div class="box ${bad.length?'warn':''}">${bad.length?`<b>มี ${bad.length} รายการไม่ผ่าน:</b> ${bad.map(b=>esc(b.name)).join(', ')} — ต้องเพิ่มขนาด ลดระยะเสา/จันทัน หรือให้วิศวกรออกแบบเพิ่มเติม`:`<b>ทุกชิ้นส่วนผ่านเกณฑ์</b> · ชิ้นที่ใช้กำลังสูงสุด ${esc(res.reduce((a,b)=>b.ratio>a.ratio?b:a).name)} ${fmt(Math.max(...res.map(r=>r.ratio))*100,0)}%`}</div>
+<table><tr><th class="c" style="width:4%">#</th><th>ชิ้นส่วน / รายละเอียดการตรวจ</th><th style="width:13%">ขนาด</th><th class="c" style="width:10%">ใช้กำลัง</th><th class="c" style="width:9%">ผล</th></tr>${rows}</table>
+<div class="n">ทุกชิ้นตรวจแบบช่วงเดียวรองรับธรรมดาโดยใช้ช่วงที่ยาวที่สุด (ครอบคลุมโมเมนต์ลบของชิ้นที่ต่อเนื่อง) · แรงในโครงถักประมาณจากสมดุลพื้นที่รับน้ำหนัก</div>
+
+<h2>5. รายละเอียดมาตรฐานการก่อสร้าง</h2><table>
+<tr><th style="width:30%">รอยเชื่อม</th><td>แป–จันทัน เชื่อม 2 ด้าน ด้านละไม่น้อยกว่า 30–40 มม. · ปลายชิ้นส่วนโครงถักเชื่อมรอบ</td></tr>
+<tr><th>สกรูยึดแผ่นหลังคา</th><td>กลางหลังคา 4–5 ตัว/ตร.ม. · แถบขอบและมุม (กว้าง ≥ 1 ม.) 6–8 ตัว/ตร.ม. · ยึดทุกลอนที่วางบนแป</td></tr>
+<tr><th>ฐานเสาเหล็ก</th><td>แผ่นเหล็ก 20×20 ซม. หนา 6 มม. · พุก M12 จำนวน 4 ตัว ฝังลึก ≥ 100 มม.</td></tr>
+<tr><th>ฐานราก</th><td>ม่อคอนกรีต 40×40×40 ซม. ฝังลึก ≥ 50 ซม. รองก้นด้วยทรายอัดแน่น · ดินอ่อนใช้เสาเข็มสั้น 4" ยาว 1.0–1.5 ม. 4 ต้นต่อม่อ</td></tr>
+<tr><th>ค้ำทแยง</th><td>ขนาดไม่เล็กกว่าชิ้นที่ค้ำ มุม 45°–60° ยึดแน่นทั้งสองปลาย</td></tr>
+<tr><th>ยึดกับอาคารเดิม</th><td>แยกโครงสร้างใหม่จากเดิม ถ้าจำเป็นต้องยึด ใช้พุกเคมี M12–M16 ทุก 1.0–1.5 ม. รับเฉพาะแรงลม ห้ามรับน้ำหนักถาวร</td></tr></table>
+
+<h2>6. ข้อจำกัด</h2><div class="box">ใช้กับอาคารสูงไม่เกิน 12 ม. เหล็กกล่องตามรายการข้างต้นเท่านั้น · ไม่รวมการตรวจรอยเชื่อมรายจุด การออกแบบฐานรากตามผลเจาะสำรวจดิน และผนัง/โครงสร้างเดิม · เอกสารนี้จะสมบูรณ์เมื่อวิศวกรโยธาผู้มีใบอนุญาตตรวจและลงนามด้านล่าง</div>
+
+<div class="sig"><div><b>ผู้จัดทำ</b><br>StarTechSteel (ส่วนกลาง)<br><br>ลงชื่อ ...........................................<br>(...........................................)<br>วันที่ ..........................</div>
+<div><b>วิศวกรผู้ตรวจและรับรอง</b><br>ใบอนุญาต กว. เลขที่ ......................<br><br>ลงชื่อ ...........................................<br>(...........................................)<br>วันที่ ..........................</div></div>
+<div class="n" style="margin-top:10px">${docNo} · สร้างจากแอปคำนวณโครงหลังคา StarTechSteel</div></body></html>`;
+  const url=URL.createObjectURL(new Blob([html],{type:'text/html'})), w=window.open(url,'_blank');
+  if(!w){ const a=document.createElement('a'); a.href=url; a.download=docNo+'.html'; document.body.appendChild(a); a.click(); a.remove(); }
+}
+
 function autoPick(R,parts,p,fromCur){ const base=sizes(), pick={};
   const order=['pSize','rSize','mSize','bSize']; if(state.col==='steel'&&!SUB(state.sub).noCol) order.push('colSize');
   const U=state.userSz||{}, kgOf=id=>S(id).kg;
