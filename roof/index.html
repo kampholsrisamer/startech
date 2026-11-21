@@ -470,7 +470,7 @@ const FIELDS = {
   side:{l:'กันสาดยื่นจากด้าน', sel:[['eave','ด้านชายคา (ด้านยาว)'],['gable','ด้านหน้าจั่ว']]},
   colSp:{l:'ระยะห่างเสา ไม่ต่ำกว่า (ม.)', st:0.1}, rafSp:{l:'ระยะห่างจันทัน ไม่เกิน (ม.)', st:0.1}, pSp:{l:'ระยะวางแป ไม่เกิน (ม.)', st:0.1},
 };
-const state = {loc:{pc:'',dc:''}, cat:null, sub:null, col:'steel', colSize:'4x4_15', view:'line', p:{}, sheet:{type:'none', pu:false, ins:'none', w:null, t:'0.35', grade:'imp', color:'navy', puT:1, puFace:'foil', puPat:'orange', install:false}};
+const state = {userSz:{}, loc:{pc:'',dc:''}, cat:null, sub:null, col:'steel', colSize:'4x4_15', view:'line', p:{}, sheet:{type:'none', pu:false, ins:'none', w:null, t:'0.35', grade:'imp', color:'navy', puT:1, puFace:'foil', puPat:'orange', install:false}};
 const $ = id => document.getElementById(id);
 const rad = d => d*Math.PI/180;
 const fmt=(n,d=2)=>(+n).toLocaleString('th-TH',{maximumFractionDigits:d,minimumFractionDigits:0});
@@ -1013,15 +1013,19 @@ function renderStruct(R,parts,p,sz){
   $('windZSel').onchange=e=>{ state.windZ=e.target.value; calc(); };
   $('autoSize').onclick=()=>autoSize();
 }
-function autoSize(){
-  const p=cleanP(), R=build(state.sub,p), {parts}=expand(R,p), base=sizes(), pick={};
+const STD_SZ={pSize:'2x1_12',rSize:'3x15_12',mSize:'4x2_12',bSize:'4x2_12',colSize:'4x4_15'};
+function autoPick(R,parts,p,fromCur){ const base=sizes(), pick={};
   const order=['pSize','rSize','mSize','bSize']; if(state.col==='steel'&&!SUB(state.sub).noCol) order.push('colSize');
-  const cur={pSize:$('pSize').value,rSize:$('rSize').value,mSize:$('mSize').value,bSize:$('bSize').value,colSize:state.colSize};
-  const sizeOf=cat=>S(pick[SEL_OF(cat)]||cur[SEL_OF(cat)]);
-  order.forEach(sel=>{ const opts=(sel==='colSize'?STEEL.filter(s=>!['1x1_12','15x15_12','mon_07'].includes(s.id)).map(s=>s.id):[...$(sel).options].map(o=>o.value)).filter(id=>id!=='mon_07'&&!['1x1_12','15x15_12'].includes(id)).map(S).filter(c=>c.kg>=S(cur[sel]).kg-1e-9).sort((a,b)=>((a.sell||0)-(b.sell||0))||(b.kg-a.kg)); // เพิ่มขนาดเท่านั้น ไม่ลดจากมาตรฐานช่าง
+  const U=state.userSz||{}, kgOf=id=>S(id).kg;
+  const cur={}; order.forEach(k=>{ const a=fromCur?(k==='colSize'?state.colSize:$(k).value):STD_SZ[k], u=U[k]; cur[k]=(u&&kgOf(u)>kgOf(a))?u:a; });
+  const sizeOf=cat=>S(pick[SEL_OF(cat)]||cur[SEL_OF(cat)]||(SEL_OF(cat)==='colSize'?state.colSize:$(SEL_OF(cat)).value));
+  order.forEach(sel=>{ const opts=(sel==='colSize'?STEEL.map(s=>s.id):[...$(sel).options].map(o=>o.value)).filter(id=>id!=='mon_07'&&!['1x1_12','15x15_12'].includes(id)).map(S).filter(c=>c.kg>=S(cur[sel]).kg-1e-9).sort((a,b)=>((a.sell||0)-(b.sell||0))||(b.kg-a.kg));
     let chosen=null; for(const c of opts){ pick[sel]=c.id; const r=structCheck(R,parts,p,base,sizeOf).filter(x=>STRUCT_SEL[x.g]===sel); if(r.every(x=>x.ratio<=1)){ chosen=c.id; break; } }
-    pick[sel]=chosen||opts[opts.length-1].id; });
-  ['pSize','rSize','mSize','bSize'].forEach(k=>{ if(pick[k]) $(k).value=pick[k]; }); if(pick.colSize) state.colSize=pick.colSize;
+    pick[sel]=chosen||cur[sel]; if(!chosen) pick._fail=true; });
+  return pick; }
+function applyPick(pick){ ['pSize','rSize','mSize','bSize'].forEach(k=>{ if(pick[k]) $(k).value=pick[k]; }); if(pick.colSize) state.colSize=pick.colSize; }
+function autoSize(){
+  const p=cleanP(), R=build(state.sub,p), {parts}=expand(R,p); applyPick(autoPick(R,parts,p,true));
   refresh(); const bad=(window._struct||[]).filter(r=>r.ratio>1);
   if(bad.length) setTimeout(()=>alert('บางรายการยังไม่ผ่านแม้ใช้เหล็กใหญ่สุด: '+bad.map(b=>b.name).join(', ')+' — ควรลดระยะเสา/ระยะจันทัน หรือปรึกษาวิศวกร'),50);
 }
@@ -1090,7 +1094,7 @@ function renderPickers(){
   $('steelSizeBox').style.display = state.col==='steel'?'':'none';
   $('concBox').style.display = state.col==='concrete'?'':'none';
   $('colSizePick').innerHTML = STEEL.filter(s=>!['1x1_12','15x15_12','mon_07'].includes(s.id)).map(s=>`<button class="chip ${s.id===state.colSize?'on':''}" data-cs="${s.id}"><b>${s.short}</b>${BRANCH?money(s.sell)+' ฿/เส้น · ':''}${fmt(s.kg)} กก./เส้น</button>`).join('');
-  $('colSizePick').querySelectorAll('[data-cs]').forEach(b=>b.onclick=()=>{state.colSize=b.dataset.cs; refresh();});
+  $('colSizePick').querySelectorAll('[data-cs]').forEach(b=>b.onclick=()=>{state.colSize=b.dataset.cs; state.userSz.colSize=b.dataset.cs; refresh();});
 
   const p=cleanP(), wall=sub.wall, lab = {
     W: wall ? 'ยื่นออกจากผนัง (ม.)' : (sub.noL ? 'ความกว้าง = ความยาว (ม.)' : FIELDS.W.l),
@@ -1112,7 +1116,7 @@ function renderPickers(){
 
 function fillSelect(el, def){ el.innerHTML = STEEL.map(s=>`<option value="${s.id}">${s.name}</option>`).join(''); el.value = def; }
 fillSelect($('pSize'),'2x1_12'); fillSelect($('mSize'),'4x2_12'); fillSelect($('rSize'),'3x15_12'); fillSelect($('bSize'),'4x2_12');
-['pSize','mSize','rSize','bSize','concPrice'].forEach(id=>$(id).addEventListener('input',calc));
+['pSize','mSize','rSize','bSize'].forEach(id=>$(id).addEventListener('input',()=>{ state.userSz[id]=$(id).value; calc(); })); $('concPrice').addEventListener('input',calc);
 function renderSteelTable(){ const bx=document.getElementById('steelTblBox'); if(bx) bx.style.display=BRANCH?'':'none'; $('steelTable').innerHTML = `<div class="tw"><table><thead><tr><th>รายการ</th><th>กก./เส้น</th><th>ราคาขาย/เส้น</th>${COST?'<th>ทุน/เส้น (รวม VAT)</th><th>กำไร/เส้น</th>':''}</tr></thead><tbody>`+
   STEEL.map(s=>`<tr><td>${s.name}</td><td>${fmt(s.kg)}</td><td>${money(s.sell)}</td>${COST?`<td>${fmt(COST[s.id])}</td><td>${fmt(s.sell-COST[s.id])}</td>`:''}</tr>`).join('')+'</tbody></table></div>'; }
 renderSteelTable();
@@ -1249,7 +1253,9 @@ const area_=a=>area(a);
 function calc(){
   if(!state.sub) return;
   const sub=SUB(state.sub), p=cleanP();
-  const R=build(state.sub,p), {parts,roofArea}=expand(R,p), sz=sizes();
+  const R=build(state.sub,p), {parts,roofArea}=expand(R,p);
+  let autoFail=false; try{ const pk=autoPick(R,parts,p,false); autoFail=!!pk._fail; applyPick(pk); }catch(e){}
+  const sz=sizes();
   const concPrice=+$('concPrice').value||0;
   const items=[]; let conc=null;
   ORDER.forEach(cat=>{
@@ -1268,7 +1274,7 @@ function calc(){
   $('selSum').innerHTML = `<b>${cat.name}${cat.subs.length>1?' › '+sub.name:''}</b> · ${fmt(p.W)}×${fmt(p.L)} ม. · ลาด ${fmt(p.slope,0)}° · ${sub.noCol?'ไม่มีเสา':(state.col==='steel'?'เสาเหล็ก '+S(state.colSize).short:'เสาคอนกรีต')}`;
   const hTopW=parts.reduce((m,x)=>Math.max(m,...x.pts.map(v=>v.y)),0), WIh=windInfo(p,hTopW);
   if($('windHint')) $('windHint').innerHTML = WIh.assumed ? 'ยังไม่ได้เลือกที่ตั้ง — ใช้ค่าลมกลุ่ม 2 (27 ม./วินาที) ไว้ก่อน' : `จ.${WIh.prov}${WIh.dist?' อ.'+WIh.dist:''} · เขตลมกลุ่ม ${WIh.zone} (มยผ.1311-50) · ความเร็วลม ${WIh.V} ม./วินาที · แรงลมยก ${fmt(WIh.up,0)} กก./ตร.ม.${WIh.note?'<br>'+WIh.note:''}`;
-  const warnL=[...R.warn]; if(WIh.tooHigh) warnL.unshift(`อาคารสูง ${fmt(hTopW,1)} ม. เกิน 12 ม. — แอปนี้ไม่ครอบคลุม ต้องให้วิศวกรออกแบบ`);
+  const warnL=[...R.warn]; if(autoFail) warnL.push('ขนาดที่ใส่มาเกินกว่าเหล็กกล่องในแอปจะรับได้ — ควรลดระยะเสา/ระยะจันทัน หรือขอรายการคำนวณโครงสร้างจากส่วนกลาง'); if(WIh.tooHigh) warnL.unshift(`อาคารสูง ${fmt(hTopW,1)} ม. เกิน 12 ม. — แอปนี้ไม่ครอบคลุม ต้องให้วิศวกรออกแบบ`);
   $('warns').innerHTML = warnL.map(w=>`<div class="warn">⚠ ${w}</div>`).join('');
   $('kpis').innerHTML = kpi(fmt(roofArea,1)+' ตร.ม.','พื้นที่แผ่นหลังคา (รวมชายคา)')
     + kpi(totBars+' เส้น','เหล็กกล่องทั้งหมด (6 ม.)') + kpi(fmt(totKg,1)+' กก.','น้ำหนักเหล็กรวม')
