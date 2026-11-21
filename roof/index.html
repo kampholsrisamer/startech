@@ -1165,6 +1165,13 @@ const CAP_LESS=5;                                       // ครอบ 457 ล�
 const PU_PRICE={1:{foil:115,wood:125},2:{foil:260,wood:280}}, PE_PRICE=50;
 const PU_PATS=[['orange','ฟอยล์เปลือกส้ม'],['white','ฟอยล์ขาว'],['black','ฟอยล์ดำ'],['wood_l','ฟอยล์ลายไม้อ่อน'],['wood_d','ฟอยล์ลายไม้เข้ม']];
 const SCREW={long50:{n:'สกรูยาว 48/50 มม.',p:2.5,pc:3},long75:{n:'สกรูยาว 60–75 มม. (ยึด PU 1 นิ้ว)',p:5,pc:7},long100:{n:'สกรูยาว 100 มม. (ยึด PU 2 นิ้ว)',p:8.5,pc:9},short:{n:'สกรูสั้น 16/20 มม.',p:1.5,pc:2}};
+// ฐานราก/อุปกรณ์ยึด — ไม่มีใน price list: ราคา HomePro (21 พ.ย. 2569) + 15% · ตามรายละเอียดวิศวกร ข้อ 8
+const FND={plate:{n:'แผ่นเหล็กฐานเสา 20×20 ซม. หนา 6 มม.',u:'แผ่น',base:125,src:'HomePro SKU 1110167'},
+  anc:{n:'พุกเหล็ก M12 (1/2")',u:'ตัว',base:13.8,src:'HomePro DEXZON SKU 1231843 (แพ็ก 10 = 138 ฿)'},
+  cem:{n:'ปูนซีเมนต์ 50 กก. (ม่อคอนกรีต)',u:'ถุง',base:119,src:'HomePro TPI 197'},
+  sand:{n:'ทรายหยาบ 25 กก.',u:'ถุง',base:48,src:'HomePro ONGROUND SKU 1192894'},
+  stone:{n:'หิน 3/4 25 กก.',u:'ถุง',base:53,src:'HomePro ONGROUND SKU 1192903'}};
+const FOOT_LABOR=null;   // ค่าแรงขุด+เทม่อ บาท/ม่อ — รอราคาจากบริษัท
 const ROD_PRICE=165;                                    // ลวดเชื่อม 2.6 บาท/กล่อง (2 กก.)
 const DISC_PRICE=100;                                   // ใบตัด 14 นิ้ว บาท/ใบ
 const FRAME_LABOR={hip:440, dutch:440, mansard:440, other:275}; // ราคาขาย บาท/ตร.ม. (ทุน 400/250 + 10%) ค่าแรงทำโครง+มุง: ปั้นหยา มนิลา สองชั้น · ทรงอื่น
@@ -1314,13 +1321,21 @@ function calc(){
   $('consTbl').innerHTML=`<thead><tr><th>วัสดุสิ้นเปลือง (ประมาณการ)</th><th>จำนวน / ราคา</th><th>คิดจาก</th></tr></thead><tbody>
     <tr><td>ลวดเชื่อม 2.6 มม. (กล่องละ ${fmt(CONS.packKg)} กก.)</td><td><b>${cs.packs} กล่อง</b>${BRANCH?` × ${ROD_PRICE} ฿`:''}<br>= <b>${state.frame?'รวมในค่าแรงแล้ว':money(cs.packs*ROD_PRICE)+' ฿'}</b></td><td>${cs.joints} จุดเชื่อม · แนวเชื่อมรวม ≈ ${fmt(cs.weldM,0)} ม. · ≈ ${cs.rods} เส้น</td></tr>
     <tr><td>ใบตัดเหล็ก 14 นิ้ว (แท่นตัด)</td><td><b>${cs.discs} ใบ</b>${BRANCH?` × ${DISC_PRICE} ฿`:''}<br>= <b>${state.frame?'รวมในค่าแรงแล้ว':money(cs.discs*DISC_PRICE)+' ฿'}</b></td><td>≈ ${cs.cuts} รอยตัด (เหล็กใหญ่คิดสึกมากกว่า)</td></tr></tbody>`;
-  const rodsP=state.frame?0:cs.packs*ROD_PRICE+cs.discs*DISC_PRICE, roofT=SH?SH.total:0, frameL=state.frame?roofArea*frameRate():0, allT=grand+rodsP+roofT+frameL;
+  const nColP=sub.noCol?0:parts.filter(x=>x.cat==='col').length, nStl=state.col==='steel'?nColP:0;
+  const wallAnc=parts.filter(x=>x.cat==='plate').reduce((a,x)=>a+Math.ceil(x.len/1.25)+1,0);
+  const Vf=nColP*0.4*0.4*0.4*1.1, fq={plate:nStl, anc:nStl*4+wallAnc, cem:Math.ceil(Vf*6.4), sand:Math.ceil(Vf*30), stone:Math.ceil(Vf*51)};
+  const fRows=Object.entries(fq).filter(([k,q])=>q>0).map(([k,q])=>{ const f=FND[k], up=Math.round(f.base*1.15*100)/100; return {k,f,q,up,amt:Math.round(q*up),cost:q*f.base}; });
+  const footL=nColP&&FOOT_LABOR!=null?nColP*FOOT_LABOR:null, fndT=fRows.reduce((a,b)=>a+b.amt,0)+(footL||0), fndC=fRows.reduce((a,b)=>a+b.cost,0), fndMiss=nColP>0&&FOOT_LABOR==null;
+  if(fRows.length) $('consTbl').innerHTML+=`<tbody><tr><th colspan="3" style="text-align:left">ฐานรากและอุปกรณ์ยึด${nColP?` (ม่อคอนกรีต 40×40×40 ซม. ${nColP} ม่อ)`:''}</th></tr>${fRows.map(r=>`<tr><td>${r.f.n}${BRANCH?`<br><small style="color:#b26a00">ไม่มีใน price list · ${r.f.src} ${r.f.base} ฿ + 15%</small>`:''}</td><td><b>${r.q} ${r.f.u}</b>${BRANCH?` × ${fmt(r.up)} ฿`:''}<br>= <b>${money(r.amt)} ฿</b></td><td>${r.k==='plate'?'เสาเหล็กต้นละ 1 แผ่น':r.k==='anc'?`แผ่นละ 4 ตัว${wallAnc?` + ยึดผนังทุก 1.0–1.5 ม. ${wallAnc} ตัว`:''} · ฝังลึก ≥ 100 มม.`:`คอนกรีต 1:2:4 · ${fmt(Vf,2)} ลบ.ม. (เผื่อ 10%)`}</td></tr>`).join('')}${nColP?`<tr><td>ค่าแรงขุดและเทม่อ</td><td><b>${footL==null?'รอราคา':money(footL)+' ฿'}</b></td><td>${nColP} ม่อ · รองก้นหลุมด้วยทรายอัดแน่น</td></tr>`:''}</tbody>`;
+  window._fnd={fRows,footL,nColP,fndT};
+  const rodsP=state.frame?0:cs.packs*ROD_PRICE+cs.discs*DISC_PRICE, roofT=SH?SH.total:0, frameL=state.frame?roofArea*frameRate():0, allT=grand+rodsP+roofT+frameL+fndT;
   if(state.frame) $('consTbl').innerHTML+=`<tbody><tr><td>ค่าแรงทำโครง + มุงหลังคา</td><td><b>${money(frameL)} ฿</b></td><td>พื้นที่หลังคา ${fmt(roofArea,1)} ตร.ม.${BRANCH?` × ${frameRate()} ฿/ตร.ม.`:''} · รวมลวดเชื่อม ใบตัด และค่ามุงหลังคาแล้ว${COST&&COST.frameLabor?` · <b>ทุน ${money(roofArea*(COST.frameLabor[state.cat]||COST.frameLabor.other))} ฿ · กำไร ${money(frameL-roofArea*(COST.frameLabor[state.cat]||COST.frameLabor.other))} ฿</b>`:''}</td></tr></tbody>`;
-  window._totals={rodsP,roofT,frameL,allT,missing:!!((SH&&SH.missing)||(conc&&!concPrice))};
+  window._totals={rodsP,roofT,frameL,fndT,allT,missing:!!((SH&&SH.missing)||(conc&&!concPrice)||fndMiss)};
   $('kpis').innerHTML += (SH? kpi(money(roofT)+' ฿','แผ่นหลังคา + อุปกรณ์'+(SH.missing?' (บางรายการรอราคา)':'')) : '')
     + (state.frame? kpi(money(frameL)+' ฿','ค่าแรงทำโครง + มุงหลังคา') : '')
+    + (fndT? kpi(money(fndT)+' ฿','ฐานรากและอุปกรณ์ยึด'+(fndMiss?' (ค่าแรงเทม่อรอราคา)':'')) : '')
     + (COST? (()=>{ const fl=state.frame&&COST.frameLabor?roofArea*(COST.frameLabor[state.cat]||COST.frameLabor.other):0, rc=state.frame?0:cs.packs*(COST.rod||ROD_PRICE)+cs.discs*DISC_PRICE,
-        ct=steelCost+(conc?concCount*concPrice:0)+(SH?SH.costT:0)+fl+rc, pr=allT-ct, part=SH&&SH.costMissing;
+        ct=steelCost+(conc?concCount*concPrice:0)+(SH?SH.costT:0)+fl+rc+fndC, pr=allT-ct, part=SH&&SH.costMissing;
         window._totals.costAll=ct; return kpi(money(ct)+' ฿','ต้นทุนรวมทั้งงาน'+(part?' (บางรายการไม่มีทุน)':''))+kpi(money(pr)+' ฿',`กำไรรวมทั้งงาน (${fmt(allT?100*pr/allT:0,1)}%)`); })() : '')
     + `<div class="kpi" style="border-left-color:#f2b705;background:linear-gradient(135deg,#fff8e1,#fdf0c4)"><b>${money(allT)} ฿</b><span>ราคาขายรวมทั้งหมด (รวม VAT · รวมลวดเชื่อมและใบตัด${state.frame?' ในค่าแรง':''}${window._totals.missing?' · บางรายการรอราคา':''})</span></div>`;
 
@@ -1359,6 +1374,7 @@ $('copyBtn').onclick=async()=>{
   s.items.forEach(it=>txt+=`- ${it.name} ${it.size.short}: ${it.bars} เส้น${BRANCH?` × ${money(it.size.sell)}`:''} = ${money(it.price)} ฿${COST?` (ทุน ${money(it.cost)})`:''}\n`);
   if(s.conc) txt+=`- เสาคอนกรีต: ${s.concCount} ต้น${s.concPrice?' = '+money(s.concCount*s.concPrice)+' ฿':''}\n`;
   txt+=`- ลวดเชื่อม 2.6 มม.: ${window._cons.packs} กล่อง · ใบตัดเหล็ก 14": ${window._cons.discs} ใบ (ประมาณการ${state.frame?' · รวมในค่าแรงแล้ว':''})\n`;
+  { const F=window._fnd; if(F&&F.fRows.length){ txt+=`- ฐานรากและอุปกรณ์ยึด${F.nColP?` (ม่อ 40×40×40 ซม. ${F.nColP} ม่อ)`:''}: `+F.fRows.map(r=>`${r.f.n} ${r.q} ${r.f.u}`).join(' · ')+`${F.nColP?` · ค่าแรงเทม่อ ${F.footL==null?'รอราคา':money(F.footL)+' ฿'}`:''}\n`; } }
   if(window._sheet){ const h=window._sheet; txt+=`- แผ่นหลังคา ${h.name}${h.thkLab?' หนา '+h.thkLab:''} ${GRADES[state.sheet.grade]} สี${RC(state.sheet.color)[1]}${state.sheet.ins!=='none'?' + '+INS_LABEL():''}${state.sheet.install?' + ติดตั้งพร้อมอุปกรณ์':''}: ${fmt(h.area,1)} ตร.ม.${h.sheets?` (${h.sheets} แผ่น)`:''}${h.ridge>0?` · ครอบ ${fmt(h.ridge,1)} ม.`:''}\n`; if(h.screws!=null) txt+=`- ${h.scrN}: ${money(h.screws)} ตัว${h.capScrews?` · สกรูสั้นแผ่นครอบ: ${money(h.capScrews)} ตัว`:''}\n`; }
   const T=window._totals||{}; if(window._sheet) txt+=`รวมแผ่นหลังคา + อุปกรณ์ ${money(T.roofT)} ฿\n`;
   txt+=`รวมเหล็ก ${s.totBars} เส้น ${fmt(s.totKg,1)} กก.\nราคาขายวัสดุโครง ${money(s.grand)} ฿\n${state.frame?`ค่าแรงทำโครง + มุงหลังคา ${money(T.frameL)} ฿\n`:''}ราคาขายรวมทั้งหมด ${money(T.allT)} ฿ (รวม VAT)`+(COST?`\nต้นทุนเหล็ก ${money(s.steelCost)} ฿ · กำไร ${money(s.steelSell-s.steelCost)} ฿`:'');
