@@ -344,6 +344,7 @@ details summary{cursor:pointer;color:var(--navy);font-weight:600;font-size:14px}
     <div class="tw" style="margin-top:10px"><table id="sheetTbl"></table></div>
     <div style="margin-top:12px"><button class="btn" id="copyBtn">คัดลอกสรุป</button><span id="copied"></span></div>
     <p class="note" id="notes"></p>
+    <div class="info" style="margin-top:10px">ขนาดเหล็กและราคาในแอปเป็นการประเมินเบื้องต้น · ต้องการ<b>รายการคำนวณโครงสร้าง</b> เลือก "ขอรายการคำนวณโครงสร้าง" ในฟอร์มด้านล่าง ส่วนกลางจะพิจารณาและติดต่อกลับ</div>
   </div>
   <div class="card" id="structCard">
     <h2>ตรวจความแข็งแรงโครงสร้าง (เบื้องต้น)</h2>
@@ -352,7 +353,8 @@ details summary{cursor:pointer;color:var(--navy);font-weight:600;font-size:14px}
   <div class="card" id="orderCard">
     <h2>📞 สั่งซื้อ / ให้ติดต่อกลับ</h2>
     <div id="orderForm">
-      <div class="seg2" id="wantSeg"><button data-v="order" class="on">สั่งซื้อ</button><button data-v="callback">ให้ติดต่อกลับ / สอบถาม</button></div>
+      <div class="seg2" id="wantSeg"><button data-v="order" class="on">สั่งซื้อ</button><button data-v="callback">ให้ติดต่อกลับ / สอบถาม</button><button data-v="calc">ขอรายการคำนวณโครงสร้าง</button></div>
+      <div class="hint" id="calcHint" style="display:none">ส่วนกลางจะพิจารณาคำขอและติดต่อกลับเพื่อจัดทำ/ส่งรายการคำนวณโครงสร้างให้</div>
       <div class="grid2">
         <div><label>ชื่อ-นามสกุล *</label><input id="oName" autocomplete="name"></div>
         <div><label>เบอร์โทร *</label><input id="oPhone" type="tel" inputmode="tel" placeholder="08xxxxxxxx" autocomplete="tel"></div>
@@ -897,9 +899,10 @@ const WZ_V={'1':25,'2':27,'3':29,'4A':30,'4B':27}, WCFG={rho:1.25, Iw:1.0, cpRoo
 function windInfo(p,hTop){ const G=(()=>{ try{ return GEO; }catch(e){ return null; } })()||{p:[],d:[]}; const L=state.loc||{}, pc=L.pc||'', dc=L.dc||'';
   let zone=pc?WIND_ZONE[pc]:'2'; const dn=dc?(G.d.find(d=>d[0]===dc)||[])[2]:'';
   if(pc==='63') zone=(dn&&dn.includes('อุ้มผาง'))?'1':'2';
+  const autoZone=zone, ovr=(typeof BRANCH!=='undefined'&&BRANCH&&state.windZ)?state.windZ:''; if(ovr) zone=ovr;
   const V=WZ_V[zone]||27, h=Math.max(p.H,((p.H||3)+(hTop||p.H||3))/2), Ce=Math.max(0.9,Math.pow(h/10,0.2)), q=0.5*WCFG.rho*V*V/ST.g;
   const up=WCFG.Iw*q*Ce*(WCFG.cpRoof+WCFG.cpi);
-  return {pc,dc,prov:pc?(G.p.find(x=>x[0]===pc)||[])[1]:'',dist:dn,zone,V,h,Ce,q,up,assumed:!pc,note:WIND_NOTE[pc]||'',tooHigh:(hTop||0)>WCFG.hMax}; }
+  return {autoZone,ovr,lower:!!ovr&&WZ_V[ovr]<WZ_V[autoZone],pc,dc,prov:pc?(G.p.find(x=>x[0]===pc)||[])[1]:'',dist:dn,zone,V,h,Ce,q,up,assumed:!pc,note:WIND_NOTE[pc]||'',tooHigh:(hTop||0)>WCFG.hMax}; }
 function structCheck(R,parts,p,sz,sizeOf){
   const th=p.slope*Math.PI/180, c=Math.cos(th)||1, sn=Math.sin(th);
   const st=state.sheet, puD=st.puT==2?2.5:1.5, cover=5+(st.ins==='pe'?0.3:st.ins==='pu'?puD:st.ins==='sand'?puD+3:0);
@@ -1006,6 +1009,8 @@ function renderStruct(R,parts,p,sz){
   </tbody></table></div>
   <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="autoSize" ${bad.length?'':'disabled style="opacity:.5"'}>เลือกขนาดเหล็กที่ผ่านให้อัตโนมัติ</button></div>
   <p class="note" style="margin-top:8px">คิดน้ำหนักแผ่นหลังคาและฉนวนตามที่เลือก + น้ำหนักจร 30 กก./ตร.ม. (หรือคนเดิน 100 กก. กลางช่วงแป) + ลมยก ${fmt((res.wind||{}).up||0,0)} กก./ตร.ม. (เขตลมกลุ่ม ${(res.wind||{}).zone||'-'}${(res.wind||{}).assumed?' — ยังไม่ได้เลือกที่ตั้ง':''}, มยผ.1311-50: q·Ce·(CpCg ${WCFG.cpRoof} + CpiCgi ${WCFG.cpi})) · เหล็กกล่อง Fy 245 MPa คิดความหนาจริงจากน้ำหนักต่อเส้น · ใช้ประเมินขนาดเหล็กเบื้องต้นเท่านั้น ไม่ใช่แบบที่วิศวกรรับรอง อาคารที่ต้องขออนุญาตต้องให้วิศวกรโยธาออกแบบและรับรอง</p>`;
+  const wi=res.wind||{}; box.insertAdjacentHTML('afterbegin',`<div class="grid2" style="margin-bottom:8px"><div><label>เขตลม (เฉพาะสาขา)</label><select id="windZSel">${[['','ตามที่ตั้ง (กลุ่ม '+(wi.autoZone||'-')+')'],['1','กลุ่ม 1 · 25 ม./วินาที'],['2','กลุ่ม 2 · 27 ม./วินาที'],['3','กลุ่ม 3 · 29 ม./วินาที'],['4B','กลุ่ม 4B · 27 ม./วินาที'],['4A','กลุ่ม 4A · 30 ม./วินาที']].map(([v,t])=>`<option value="${v}" ${v===(state.windZ||'')?'selected':''}>${t}</option>`).join('')}</select></div></div>${wi.ovr?`<div class="${wi.lower?'warn':'info'}" style="margin-bottom:8px">${wi.lower?'⚠ ':''}สาขาเปลี่ยนเขตลมเป็นกลุ่ม ${wi.ovr} (ตามตารางคือกลุ่ม ${wi.autoZone})${wi.lower?' — ต่ำกว่าตาราง ต้องมีเหตุผลหรือเอกสารวิศวกรประกอบ':''}</div>`:''}`);
+  $('windZSel').onchange=e=>{ state.windZ=e.target.value; calc(); };
   $('autoSize').onclick=()=>autoSize();
 }
 function autoSize(){
@@ -1329,6 +1334,7 @@ function refresh(){ renderPickers(); panelSig=''; calc(); }
 $('copyBtn').onclick=async()=>{
   const s=window._sum, p=s.p;
   let txt=`StarTechSteel – สรุปโครงหลังคา\n${s.cat.name}${s.cat.subs.length>1?' › '+s.sub.name:''}\nขนาด ${fmt(p.W)} × ${fmt(p.L)} ม. สูง ${fmt(p.H)} ม. ลาด ${fmt(p.slope,0)}° ชายคา ${fmt(p.ovh)} ม.\nพื้นที่หลังคา ${fmt(s.roofArea,1)} ตร.ม.\n`;
+  { const w=(window._struct&&window._struct.wind)||null; if(w) txt+=`ที่ตั้ง: ${w.assumed?'ยังไม่ระบุ':('จ.'+w.prov+(w.dist?' อ.'+w.dist:''))} · เขตลมกลุ่ม ${w.zone}${w.ovr?` (สาขาเปลี่ยนจากกลุ่ม ${w.autoZone})`:''} · แรงลมยก ${fmt(w.up,0)} กก./ตร.ม.\n`; }
   s.items.forEach(it=>txt+=`- ${it.name} ${it.size.short}: ${it.bars} เส้น${BRANCH?` × ${money(it.size.sell)}`:''} = ${money(it.price)} ฿${COST?` (ทุน ${money(it.cost)})`:''}\n`);
   if(s.conc) txt+=`- เสาคอนกรีต: ${s.concCount} ต้น${s.concPrice?' = '+money(s.concCount*s.concPrice)+' ฿':''}\n`;
   txt+=`- ลวดเชื่อม 2.6 มม.: ${window._cons.packs} กล่อง · ใบตัดเหล็ก 14": ${window._cons.discs} ใบ (ประมาณการ${state.frame?' · รวมในค่าแรงแล้ว':''})\n`;
@@ -1707,7 +1713,7 @@ function initOrder(){
   $('oProv').onchange=()=>{ order.gps=null; $('oGpsMsg').textContent=''; fillDist(); showRoute(); syncLocFromOrder(); };
   $('oDist').onchange=()=>{ order.gps=null; $('oGpsMsg').textContent=''; fillTam(); showRoute(); syncLocFromOrder(); };
   $('oTam').onchange=()=>{ order.gps=null; $('oGpsMsg').textContent=''; showRoute(); };
-  $('wantSeg').querySelectorAll('button').forEach(b=>b.onclick=()=>{ $('wantSeg').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); order.want=b.dataset.v; });
+  $('wantSeg').querySelectorAll('button').forEach(b=>b.onclick=()=>{ $('wantSeg').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); order.want=b.dataset.v; $('calcHint').style.display=order.want==='calc'?'':'none'; });
   $('oGps').onclick=()=>{
     const msg=$('oGpsMsg'); msg.textContent='กำลังหาตำแหน่ง…';
     if(!navigator.geolocation){ msg.textContent='อุปกรณ์นี้ใช้ตำแหน่งไม่ได้ กรุณาเลือกจังหวัด/อำเภอ'; return; }
@@ -1750,9 +1756,9 @@ async function sendOrder(){
   if(!/^0\d{8,9}$/.test(phone)) return err.textContent='กรุณากรอกเบอร์โทรให้ถูกต้อง (เช่น 0812345678)';
   if(!$('oProv').value||!$('oDist').value) return err.textContent='กรุณาเลือกจังหวัดและอำเภอของหน้างาน';
   if(!$('oConsent').checked) return err.textContent='กรุณาติ๊กยินยอมให้ติดต่อกลับ';
-  const L=orderLoc(), r=routeTo(L.lat,L.lon), pc=$('oProv').value, dc=$('oDist').value;
+  const L=orderLoc(), r0=routeTo(L.lat,L.lon), r=order.want==='calc'?Object.assign({},r0,{type:'central',branch:CONTACT.central,dist:null}):r0, pc=$('oProv').value, dc=$('oDist').value;
   const ts=GEO.t.filter(t=>t[0]===dc).sort((a,b)=>a[1].localeCompare(b[1],'th')), ti=$('oTam').value;
-  const pl={ id:'STS'+Date.now().toString(36).toUpperCase(), time:new Date().toISOString(), want:order.want, wantLabel:order.want==='order'?'สั่งซื้อ':'ให้ติดต่อกลับ',
+  const pl={ id:'STS'+Date.now().toString(36).toUpperCase(), time:new Date().toISOString(), want:order.want, wantLabel:order.want==='order'?'สั่งซื้อ':order.want==='calc'?'ขอรายการคำนวณโครงสร้าง':'ให้ติดต่อกลับ',
     routeTo:{type:r.type,id:r.branch.id,name:r.branch.name,distanceKm:r.dist!=null?Math.round(r.dist):null,nearestBranch:r.nearest.b.name,nearestKm:Math.round(r.nearest.d)},
     customer:{name,phone,line:$('oLine').value.trim(),note:$('oNote').value.trim()},
     location:{province:GEO.p.find(p=>p[0]===pc)[1],district:GEO.d.find(d=>d[0]===dc)[2],tambon:ti!==''&&ts[+ti]?ts[+ti][1]:'',address:$('oAddr').value.trim(),
