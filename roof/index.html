@@ -899,7 +899,7 @@ function ssBeam(L,loads,w){ // ช่วงเดียวรองรับธ�
 const WIND_ZONE={"63":"2","10":"1","11":"1","12":"1","13":"1","14":"1","15":"1","16":"1","17":"1","18":"1","19":"1","20":"1","21":"1","22":"1","23":"1","24":"1","25":"1","26":"1","27":"1","70":"1","71":"1","72":"1","73":"1","74":"1","75":"1","30":"1","31":"1","32":"1","33":"1","36":"1","39":"1","40":"1","41":"1","42":"1","44":"1","45":"1","46":"1","47":"1","60":"1","61":"1","62":"1","64":"1","65":"1","66":"1","67":"1","53":"1","34":"2","35":"2","37":"2","43":"2","48":"2","49":"2","38":"2","51":"2","52":"2","54":"2","55":"2","50":"3","56":"3","57":"3","58":"3","77":"4A","80":"4A","82":"4A","84":"4A","85":"4A","86":"4A","91":"4A","93":"4A","96":"4A","81":"4A","92":"4A","83":"4A","90":"4A","94":"4A","95":"4A","76":"4B"};
 const WIND_NOTE={'38':'บึงกาฬไม่อยู่ในตาราง ก-1 (ตั้งจังหวัดภายหลัง) ใช้กลุ่มเดียวกับหนองคาย','63':'ตาก: อ.อุ้มผาง กลุ่ม 1 อำเภออื่นกลุ่ม 2'};
 ['80','84','81','92','83','90','94','95','82','85','86','91','93','96','77'].forEach(c=>WIND_NOTE[c]=WIND_NOTE[c]||'ภาคใต้: ใช้กลุ่ม 4A (V = 30 ม./วินาที) ไว้ก่อนทั้งจังหวัด รอตรวจรายอำเภอ');
-const WZ_V={'1':25,'2':27,'3':29,'4A':30,'4B':27}, WCFG={rho:1.25, Iw:1.0, cpRoof:1.3, cpi:0.3, hMax:12};
+const COL_HMAX={'4x4_15':3.0}; const WZ_V={'1':25,'2':27,'3':29,'4A':30,'4B':27}, WCFG={rho:1.25, Iw:1.0, cpRoof:1.3, cpi:0.3, hMax:12};
 function windInfo(p,hTop){ const G=(()=>{ try{ return GEO; }catch(e){ return null; } })()||{p:[],d:[]}; const L=state.loc||{}, pc=L.pc||'', dc=L.dc||'';
   let zone=pc?WIND_ZONE[pc]:'2'; const dn=dc?(G.d.find(d=>d[0]===dc)||[])[2]:'';
   if(pc==='63') zone=(dn&&dn.includes('อุ้มผาง'))?'1':'2';
@@ -995,8 +995,16 @@ function structCheck(R,parts,p,sz,sizeOf){
   if(!SUB(state.sub).noCol && state.col==='steel' && colTops.length){ const s=S('col'), sp=secProp(s), braced=(R.walls||[]).length>0, K=braced?1:2;
     const xs=[...new Set(colTops.map(q=>+q.x.toFixed(2)))].sort((a,b)=>a-b), zs=[...new Set(colTops.map(q=>+q.z.toFixed(2)))].sort((a,b)=>a-b);
     const half=(arr,v)=>{ const i=arr.indexOf(+v.toFixed(2)); const l=i>0?(arr[i]-arr[i-1])/2:p.ovh, r=i<arr.length-1?(arr[i+1]-arr[i])/2:p.ovh; return l+r; };
-    let worst=null; colTops.forEach(q=>{ const A=half(xs,q.x)*half(zs,q.z)/c, P=A*wA, L=q.y*1000*K, F=Fa(sp,L), ratio=Math.max(P/sp.A/F,(L/sp.r)/200); if(!worst||ratio>worst.ratio) worst={ratio,P,h:q.y,A}; });
-    add('col',{name:'เสาเหล็ก',size:s,span:worst.h,ratio:worst.ratio,note:`สูง ${fmt(worst.h)} ม. · รับพื้นที่หลังคา ${fmt(worst.A,1)} ตร.ม. ≈ ${fmt(worst.P/ST.g,0)} กก. · ${braced?'มีผนังยึด K=1':'โครงเปิด ไม่มีผนังยึด K=2'}`}); }
+    const kbs=parts.filter(x=>x.cat==='kbrace'), Fb=0.6*ST.Fy, pL=WI.q*WI.Ce*1.3*ST.g; // แรงลมด้านข้าง (N/m²) CpCg ผนังรับลม+ด้านหลังลม ≈ 1.3
+    const allP=parts.flatMap(x=>x.pts), ext=k=>Math.max(...allP.map(v=>v[k]))-Math.min(...allP.map(v=>v[k])), rise=Math.max(0,hTop-Math.min(...colTops.map(q=>q.y)))+0.2;
+    const Hcol=pL*Math.max(ext('x'),ext('z'))*rise/colTops.length;   // หลังคาเป็นแผ่นแข็ง กระจายแรงลมด้านข้างให้เสาทุกต้นเท่ากัน
+    let worst=null; colTops.forEach(q=>{ const A=half(xs,q.x)*half(zs,q.z)/c, P=A*wA, L=q.y*1000*K, F=Fa(sp,L), fa=P/sp.A;
+      let Mw=0, Mk=0; if(!braced){ Mw=Hcol*q.y*1000 + pL*s.w*q.y*q.y*1e6/2/1000; }   // เสายื่นจากฐาน: แรงลมที่หลังคาเฉลี่ยทุกต้น × สูงเสา + ลมที่ตัวเสา
+      const kb=kbs.filter(k=>Math.hypot(k.pts[0].x-q.x,k.pts[0].z-q.z)<0.05); if(kb.length){ const Pk=wA*((R.W||p.W)/c)/2*Math.max(3,bay)/2/0.7, d=Math.abs(q.y-kb[0].pts[0].y)*1000; Mk=Pk/Math.SQRT2*d/2; }
+      const hCap=(!braced&&COL_HMAX[s.id])?q.y/COL_HMAX[s.id]*0.999:0;   // วิศวกรกำหนด: เสา 4×4 หนา 1.5 โครงเปิด สูงไม่เกิน 3.0 ม.
+      const rG=fa/F+Mk/(sp.Sx*Fb), rWd=(fa/F+(Mw+Mk)/(sp.Sx*Fb))*3/4, ratio=Math.max(rG,rWd,(L/sp.r)/200,hCap);
+      if(!worst||ratio>worst.ratio) worst={ratio,P,h:q.y,A,Mw,Mk,rG,rWd}; });
+    add('col',{name:'เสาเหล็ก',size:s,span:worst.h,ratio:worst.ratio,note:`สูง ${fmt(worst.h)} ม. · รับพื้นที่หลังคา ${fmt(worst.A,1)} ตร.ม. ≈ ${fmt(worst.P/ST.g,0)} กก. · ${worst.Mw?`ลมด้านข้าง M≈${fmt(worst.Mw/ST.g/1000,0)} กก.-ม. · `:''}${worst.Mk?`ค้ำหัวเสา M≈${fmt(worst.Mk/ST.g/1000,0)} กก.-ม. · `:''}${(!braced&&COL_HMAX[s.id])?`วิศวกรกำหนดสูงไม่เกิน ${COL_HMAX[s.id]} ม. · `:''}${braced?'มีผนังยึด K=1':'โครงเปิด ไม่มีผนังยึด K=2'}`}); }
   out.wind=WI; return out;
 }
 // กลุ่ม → ช่องเลือกขนาด
