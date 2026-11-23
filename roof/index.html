@@ -344,7 +344,7 @@ details summary{cursor:pointer;color:var(--navy);font-weight:600;font-size:14px}
     <div class="tw" style="margin-top:10px"><table id="sheetTbl"></table></div>
     <div style="margin-top:12px"><button class="btn" id="copyBtn">คัดลอกสรุป</button><span id="copied"></span></div>
     <p class="note" id="notes"></p>
-    <div class="info" style="margin-top:10px">ขนาดเหล็กและราคาในแอปเป็นการประเมินเบื้องต้น · ต้องการ<b>รายการคำนวณโครงสร้าง</b> เลือก "ขอรายการคำนวณโครงสร้าง" ในฟอร์มด้านล่าง ส่วนกลางจะพิจารณาและติดต่อกลับ</div>
+    <div class="info" style="margin-top:10px">ขนาดเหล็กและราคาในแอปเป็นการประเมินเบื้องต้น · ต้องการ<b>รายการคำนวณและแบบโครงสร้าง</b> เลือก "ขอรายการคำนวณ + แบบโครงสร้าง" ในฟอร์มด้านล่าง ส่วนกลางจะพิจารณาและติดต่อกลับ</div>
   </div>
   <div class="card" id="structCard">
     <h2>ตรวจความแข็งแรงโครงสร้าง (เบื้องต้น)</h2>
@@ -353,8 +353,8 @@ details summary{cursor:pointer;color:var(--navy);font-weight:600;font-size:14px}
   <div class="card" id="orderCard">
     <h2>📞 สั่งซื้อ / ให้ติดต่อกลับ</h2>
     <div id="orderForm">
-      <div class="seg2" id="wantSeg"><button data-v="order" class="on">สั่งซื้อ</button><button data-v="callback">ให้ติดต่อกลับ / สอบถาม</button><button data-v="calc">ขอรายการคำนวณโครงสร้าง</button></div>
-      <div class="hint" id="calcHint" style="display:none">ส่วนกลางจะพิจารณาคำขอและติดต่อกลับเพื่อจัดทำ/ส่งรายการคำนวณโครงสร้างให้</div>
+      <div class="seg2" id="wantSeg"><button data-v="order" class="on">สั่งซื้อ</button><button data-v="callback">ให้ติดต่อกลับ / สอบถาม</button><button data-v="calc">ขอรายการคำนวณ + แบบโครงสร้าง</button></div>
+      <div class="hint" id="calcHint" style="display:none">ส่วนกลางจะพิจารณาคำขอและติดต่อกลับเพื่อจัดทำ/ส่งรายการคำนวณและแบบโครงสร้างให้</div>
       <div class="grid2">
         <div><label>ชื่อ-นามสกุล *</label><input id="oName" autocomplete="name"></div>
         <div><label>เบอร์โทร *</label><input id="oPhone" type="tel" inputmode="tel" placeholder="08xxxxxxxx" autocomplete="tel"></div>
@@ -1965,7 +1965,7 @@ async function sendOrder(){
   if(!$('oConsent').checked) return err.textContent='กรุณาติ๊กยินยอมให้ติดต่อกลับ';
   const L=orderLoc(), r0=routeTo(L.lat,L.lon), r=order.want==='calc'?Object.assign({},r0,{type:'central',branch:CONTACT.central,dist:null}):r0, pc=$('oProv').value, dc=$('oDist').value;
   const ts=GEO.t.filter(t=>t[0]===dc).sort((a,b)=>a[1].localeCompare(b[1],'th')), ti=$('oTam').value;
-  const pl={ id:'STS'+Date.now().toString(36).toUpperCase(), time:new Date().toISOString(), want:order.want, wantLabel:order.want==='order'?'สั่งซื้อ':order.want==='calc'?'ขอรายการคำนวณโครงสร้าง':'ให้ติดต่อกลับ',
+  const pl={ id:'STS'+Date.now().toString(36).toUpperCase(), time:new Date().toISOString(), want:order.want, wantLabel:order.want==='order'?'สั่งซื้อ':order.want==='calc'?'ขอรายการคำนวณ + แบบโครงสร้าง':'ให้ติดต่อกลับ',
     routeTo:{type:r.type,id:r.branch.id,name:r.branch.name,distanceKm:r.dist!=null?Math.round(r.dist):null,nearestBranch:r.nearest.b.name,nearestKm:Math.round(r.nearest.d)},
     customer:{name,phone,line:$('oLine').value.trim(),note:$('oNote').value.trim()},
     location:{province:GEO.p.find(p=>p[0]===pc)[1],district:GEO.d.find(d=>d[0]===dc)[2],tambon:ti!==''&&ts[+ti]?ts[+ti][1]:'',address:$('oAddr').value.trim(),
