@@ -853,6 +853,7 @@ tfoot td{font-weight:700;background:#f7f9fc}
 .kpi{background:linear-gradient(135deg,#f3f6fc,#e8eef9);border-radius:12px;padding:10px;border-left:4px solid var(--navy)}
 .kpi b{display:block;font-size:20px;color:var(--navy)}
 .kpi span{font-size:12px;color:var(--mute)}
+#mapUse:disabled{opacity:.35;cursor:not-allowed}
 .mpt{background:#ffc21a;border:2px solid #0b1d42;border-radius:50%;display:grid;place-items:center;font:700 12px sans-serif;color:#0b1d42;box-shadow:0 2px 6px rgba(0,0,0,.4)}.mlen{background:rgba(11,29,66,.85);color:#fff;font:700 11px sans-serif;border-radius:6px;text-align:center;line-height:20px;white-space:nowrap}
 #mapModal.hide{display:none!important}
 .btn{padding:10px 14px;border:0;border-radius:8px;background:var(--navy);color:#fff;font:inherit;font-weight:600;cursor:pointer}
@@ -1897,7 +1898,8 @@ function barsNeeded(pieces){
 }
 
 /* ================= UI ================= */
-function cleanP(){ const sub=SUB(state.sub); const p={...COMMON,...sub.def,...state.p}; p.colSp=Math.max(MINCOL,p.colSp||MINCOL); if(sub.noL) p.L=p.W; if(sub.noOvh) p.ovh=0; return p; }
+const MAXD={W:30,L:60};
+function cleanP(){ const sub=SUB(state.sub); const p={...COMMON,...sub.def,...state.p}; for(const k in MAXD) if(p[k]>MAXD[k]) p[k]=MAXD[k]; p.colSp=Math.max(MINCOL,p.colSp||MINCOL); if(sub.noL) p.L=p.W; if(sub.noOvh) p.ovh=0; return p; }
 function loadSub(id){ state.sub=id; state.p={...COMMON,...SUB(id).def}; if(SHEETS[state.sheet.type].pSp) state.p.pSp=SHEETS[state.sheet.type].pSp; }
 const optHTML=(on,img,title,small,attr)=>`<button class="opt ${on?'on':''}" ${attr}><span class="tick">✓</span>${img}<b>${title}</b><small>${small}</small></button>`;
 
@@ -2472,8 +2474,8 @@ function buildPanel(keys){
   $('numPanel').innerHTML=keys.map(k=>`<div class="nrow${k===selK?' sel':''}" data-row="${k}"><span class="nb">${NUMOF[k]}</span><span><span class="nl">${numName(k)}</span><input type="number" inputmode="decimal" step="${FIELDS[k].st}" data-pk="${k}" value="${+(+p[k]).toFixed(2)}"><span class="na" id="na-${k}"></span></span></div>`).join('');
   $('numPanel').querySelectorAll('[data-pk]').forEach(i=>{
     i.addEventListener('focus',()=>selectNum(i.dataset.pk,false));
-    i.addEventListener('input',()=>{ const k=i.dataset.pk, v=parseFloat(i.value); if(isNaN(v)||v<=0) return; if(k==='colSp'&&v<MINCOL) return; state.p[k]=v; calc(); syncInputs(i); });
-    i.addEventListener('change',()=>{ const k=i.dataset.pk; if(k==='colSp'&&(+i.value)<MINCOL){ i.value=MINCOL; state.p.colSp=MINCOL; calc(); syncInputs(i);} });
+    i.addEventListener('input',()=>{ const k=i.dataset.pk, v=parseFloat(i.value); if(isNaN(v)||v<=0) return; if(k==='colSp'&&v<MINCOL) return; if(MAXD[k]&&v>MAXD[k]) return; state.p[k]=v; calc(); syncInputs(i); });
+    i.addEventListener('change',()=>{ const k=i.dataset.pk; if(MAXD[k]&&(+i.value)>MAXD[k]){ alert(`แอปนี้รองรับ${k==='W'?'กว้าง':'ยาว'}ไม่เกิน ${MAXD[k]} ม. — งานใหญ่กว่านี้ติดต่อสาขา`); i.value=MAXD[k]; state.p[k]=MAXD[k]; calc(); syncInputs(i); return; } if(k==='colSp'&&(+i.value)<MINCOL){ i.value=MINCOL; state.p.colSp=MINCOL; calc(); syncInputs(i);} });
   });
   $('numPanel').querySelectorAll('.nrow').forEach(r=>r.addEventListener('click',()=>selectNum(r.dataset.row,true)));
 }
@@ -2610,21 +2612,23 @@ function mapDraw(){ const m=MAPM.map; if(MAPM.layer) MAPM.layer.remove(); const 
   const ovh=(state.p&&state.p.ovh)||0, sub=$('mapEdge').value==='roof';
   $('mapInfo').innerHTML = !M ? `<b>แตะมุมหลังคาบนภาพทีละจุด</b> (อย่างน้อย 3 จุด) · ลากหมุดเพื่อขยับ`
    : `พื้นที่มองจากด้านบน <b>${fmt(M.A,1)} ตร.ม.</b> · สี่เหลี่ยมที่พอดีที่สุด <b>${fmt(M.L,2)} × ${fmt(M.W,2)} ม.</b>${M.fill<0.85?`<br><span style="color:#b26a00">รูปทรงไม่ใกล้สี่เหลี่ยม (เต็มกรอบ ${fmt(M.fill*100,0)}%) — ทรงตัว L/หลายมุข ให้เลือกทรงที่ใกล้เคียงแล้วปรับขนาดเอง</span>`:''}<br>จะใส่ในแอป: ยาว <b>${fmt(Math.max(1,M.L-(sub?2*ovh:0)),1)}</b> × กว้าง <b>${fmt(Math.max(1,M.W-(sub?2*ovh:0)),1)}</b> ม.${sub?` (หักชายคา ${fmt(ovh,2)} ม. ทั้งสองด้าน)`:''}`;
-  $('mapUse').disabled=!M; }
+  const big=M&&(M.L-(sub?2*ovh:0)>MAXD.L||M.W-(sub?2*ovh:0)>MAXD.W);
+  if(big) $('mapInfo').innerHTML=`<b style="color:#c62828">ขนาดที่วัดได้ ${fmt(M.L,0)} × ${fmt(M.W,0)} ม. ใหญ่เกินจริง</b> — น่าจะแตะจุดตอนแผนที่ยังซูมออกอยู่ (จุดอยู่นอกจอ)<br>กด <b>ล้าง</b> → ซูมเข้าจนเห็นหลังคาชัด → แตะมุมหลังคาใหม่ (แอปรองรับกว้าง ≤ ${MAXD.W} ม. ยาว ≤ ${MAXD.L} ม.)`;
+  $('mapUse').disabled=!M||big; }
 function openMap(){
   bindMapModal(); $('mapModal').classList.remove('hide'); document.body.style.overflow='hidden';
   if(!MAPM.map){ const m=L.map('mapBox',{zoomControl:true,maxZoom:21,attributionControl:true}); MAPM.map=m;
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxNativeZoom:19,maxZoom:21,attribution:'ภาพ © Esri, Maxar, Earthstar Geographics'}).addTo(m);
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',{maxNativeZoom:19,maxZoom:21,opacity:.9}).addTo(m);
-    m.on('click',e=>{ MAPM.pts.push(e.latlng); mapDraw(); });
+    m.on('click',e=>{ if(m.getZoom()<17){ $('mapInfo').innerHTML='<b style="color:#c62828">ซูมเข้าก่อน</b> — กด + หรือถ่างนิ้วจนเห็นหลังคาบ้านชัดเต็มจอ แล้วค่อยแตะมุมหลังคา'; return; } MAPM.pts.push(e.latlng); mapDraw(); });
     const Ld=state.loc&&state.loc.dc&&GEO?GEO.d.find(d=>d[0]===state.loc.dc):null;
     if(MAPM.pts.length) m.fitBounds(L.latLngBounds(MAPM.pts).pad(0.4)); else if(order.gps) m.setView([order.gps.lat,order.gps.lon],19); else if(Ld) m.setView([Ld[3],Ld[4]],15); else m.setView([16.0,103.5],7); }
   setTimeout(()=>{ MAPM.map.invalidateSize(); mapDraw(); },60); }
 function closeMap(){ $('mapModal').classList.add('hide'); document.body.style.overflow=''; }
 function mapGps(){ if(!navigator.geolocation){ alert('อุปกรณ์นี้ใช้ตำแหน่งไม่ได้'); return; } $('mapGps').textContent='กำลังหา…';
   navigator.geolocation.getCurrentPosition(pos=>{ $('mapGps').textContent='📍 ตำแหน่งฉัน'; MAPM.map.setView([pos.coords.latitude,pos.coords.longitude],19); },()=>{ $('mapGps').textContent='📍 ตำแหน่งฉัน'; alert('ใช้ตำแหน่งไม่ได้ (ไม่ได้อนุญาต) — เลื่อนแผนที่ไปที่บ้านเอง หรือเลือกอำเภอ'); },{enableHighAccuracy:true,timeout:12000}); }
-function useMap(){ const M=mapMeasure(); if(!M) return; const ovh=(state.p&&state.p.ovh)||0, sub=$('mapEdge').value==='roof', r1=v=>Math.round(Math.max(1,v)*10)/10;
-  state.p.L=r1(M.L-(sub?2*ovh:0)); state.p.W=r1(M.W-(sub?2*ovh:0));
+function useMap(){ const M=mapMeasure(); if(!M||$('mapUse').disabled) return; const ovh=(state.p&&state.p.ovh)||0, sub=$('mapEdge').value==='roof', r1=v=>Math.round(Math.max(1,v)*10)/10;
+  state.p.L=Math.min(MAXD.L,r1(M.L-(sub?2*ovh:0))); state.p.W=Math.min(MAXD.W,r1(M.W-(sub?2*ovh:0)));
   const [lat,lon]=M.c; state.mapPoly={pts:MAPM.pts.map(p=>[+p.lat.toFixed(7),+p.lng.toFixed(7)]),area:+M.A.toFixed(1),L:+M.L.toFixed(2),W:+M.W.toFixed(2),edge:$('mapEdge').value};
   try{ const a=nearestAdmin(lat,lon); order.gps={lat,lon,acc:null,src:'map'}; setLoc(a.pc,a.dc); }catch(e){}
   closeMap(); refresh(); syncInputs(); const n=$('mapNote'); if(n) n.innerHTML=`วัดจากแผนที่แล้ว: พื้นที่ ${fmt(M.A,1)} ตร.ม. · ${fmt(M.L,2)} × ${fmt(M.W,2)} ม. (${sub?'ขอบหลังคา':'แนวเสา/ผนัง'}) · <a href="#" id="mapReopen">แก้ไข</a>`;
