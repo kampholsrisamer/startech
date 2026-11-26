@@ -2614,13 +2614,16 @@ function mapDraw(){ const m=MAPM.map; if(MAPM.layer) MAPM.layer.remove(); const 
    : `พื้นที่มองจากด้านบน <b>${fmt(M.A,1)} ตร.ม.</b> · สี่เหลี่ยมที่พอดีที่สุด <b>${fmt(M.L,2)} × ${fmt(M.W,2)} ม.</b>${M.fill<0.85?`<br><span style="color:#b26a00">รูปทรงไม่ใกล้สี่เหลี่ยม (เต็มกรอบ ${fmt(M.fill*100,0)}%) — ทรงตัว L/หลายมุข ให้เลือกทรงที่ใกล้เคียงแล้วปรับขนาดเอง</span>`:''}<br>จะใส่ในแอป: ยาว <b>${fmt(Math.max(1,M.L-(sub?2*ovh:0)),1)}</b> × กว้าง <b>${fmt(Math.max(1,M.W-(sub?2*ovh:0)),1)}</b> ม.${sub?` (หักชายคา ${fmt(ovh,2)} ม. ทั้งสองด้าน)`:''}`;
   const big=M&&(M.L-(sub?2*ovh:0)>MAXD.L||M.W-(sub?2*ovh:0)>MAXD.W);
   if(big) $('mapInfo').innerHTML=`<b style="color:#c62828">ขนาดที่วัดได้ ${fmt(M.L,0)} × ${fmt(M.W,0)} ม. ใหญ่เกินจริง</b> — น่าจะแตะจุดตอนแผนที่ยังซูมออกอยู่ (จุดอยู่นอกจอ)<br>กด <b>ล้าง</b> → ซูมเข้าจนเห็นหลังคาชัด → แตะมุมหลังคาใหม่ (แอปรองรับกว้าง ≤ ${MAXD.W} ม. ยาว ≤ ${MAXD.L} ม.)`;
-  $('mapUse').disabled=!M||big; }
+  $('mapUse').disabled=!M||big; mapTip(); }
+function mapTip(){ const t=$('mapTip'); if(!t||!MAPM.map) return; const z=MAPM.map.getZoom(), n=MAPM.pts.length;
+  t.textContent = n===0&&z<17 ? '👆 แตะตรงบ้านเพื่อซูมเข้า' : n===0 ? '👆 แตะมุมหลังคาจุดที่ 1' : n<3 ? `👆 แตะมุมถัดไป (จุดที่ ${n+1})` : $('mapUse').disabled ? '⚠️ ขนาดผิดปกติ กด ล้าง' : '✅ แตะเพิ่มมุมได้ หรือกด ใช้ขนาดนี้'; }
 function openMap(){
   bindMapModal(); $('mapModal').classList.remove('hide'); document.body.style.overflow='hidden';
   if(!MAPM.map){ const m=L.map('mapBox',{zoomControl:true,maxZoom:21,attributionControl:true}); MAPM.map=m;
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxNativeZoom:19,maxZoom:21,attribution:'ภาพ © Esri, Maxar, Earthstar Geographics'}).addTo(m);
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',{maxNativeZoom:19,maxZoom:21,opacity:.9}).addTo(m);
-    m.on('click',e=>{ if(m.getZoom()<17){ $('mapInfo').innerHTML='<b style="color:#c62828">ซูมเข้าก่อน</b> — กด + หรือถ่างนิ้วจนเห็นหลังคาบ้านชัดเต็มจอ แล้วค่อยแตะมุมหลังคา'; return; } MAPM.pts.push(e.latlng); mapDraw(); });
+    m.on('click',e=>{ const z=m.getZoom(); if(z<17){ m.setView(e.latlng,Math.min(19,z<12?z+4:z+2)); return; } MAPM.pts.push(e.latlng); mapDraw(); });
+    m.on('zoomend',mapTip);
     const Ld=state.loc&&state.loc.dc&&GEO?GEO.d.find(d=>d[0]===state.loc.dc):null;
     if(MAPM.pts.length) m.fitBounds(L.latLngBounds(MAPM.pts).pad(0.4)); else if(order.gps) m.setView([order.gps.lat,order.gps.lon],19); else if(Ld) m.setView([Ld[3],Ld[4]],15); else m.setView([16.0,103.5],7); }
   setTimeout(()=>{ MAPM.map.invalidateSize(); mapDraw(); },60); }
@@ -2727,7 +2730,7 @@ renderPickers();
 </script>
 <div id="mapModal" class="hide" style="position:fixed;inset:0;z-index:5000;background:#0b1d42;display:flex;flex-direction:column">
   <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;color:#fff"><b style="flex:1">วัดขนาดหลังคาจากแผนที่</b><button class="btn" id="mapGps" type="button" style="background:#2f6fb5;padding:7px 10px">📍 ตำแหน่งฉัน</button><button class="btn" id="mapClose" type="button" style="background:#555;padding:7px 12px">✕</button></div>
-  <div id="mapBox" style="flex:1;min-height:200px"></div>
+  <div style="flex:1;min-height:200px;position:relative;display:flex"><div id="mapBox" style="flex:1"></div><div id="mapTip" style="position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:1000;background:rgba(11,29,66,.92);color:#fff;padding:8px 14px;border-radius:20px;font-size:15px;font-weight:700;pointer-events:none;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.4)"></div></div>
   <div style="background:#fff;padding:10px 12px;font-size:14px;line-height:1.5">
     <div id="mapInfo"></div>
     <div style="display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap"><label style="font-size:13px">เส้นที่วาดคือ <select id="mapEdge"><option value="roof">ขอบหลังคา (รวมชายคา)</option><option value="wall">แนวเสา/ผนัง</option></select></label></div>
